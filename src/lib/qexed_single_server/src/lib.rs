@@ -1,19 +1,13 @@
 use anyhow::{Ok, Result};
 use qexed_net::{
-    mojang_online::query_mojang_for_usernames,
-    net_types::packet::{PacketState},
-    packet::packet_pool::{DisconnectLogin},
-    player::Player,
-    read_packet,
+    mojang_online::query_mojang_for_usernames, net_types::packet::PacketState,
+    packet::packet_pool::DisconnectLogin, player::Player, read_packet,
 };
 use rand::prelude::*;
 use serde_json::json;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tokio::{
-    self,
-    net::TcpListener,
-};
+use tokio::{self, net::TcpListener};
 pub async fn main() -> Result<(), anyhow::Error> {
     log::info!(
         "启动我的世界服务器版本:{}",
@@ -44,7 +38,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                     return;
                 }
                 let packets = raw_packets.unwrap();
-                log::info!("数据包内容:{:?}", packets.clone());
+                // log::info!("数据包内容:{:?}", packets.clone());
                 let packet2 = read_packet(packets.clone(), client_status);
                 if packet2.is_err() {
                     log::error!(
@@ -82,8 +76,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                 .as_any()
                                 .downcast_ref::<qexed_net::packet::packet_pool::StatusRequest>(
                             ) {
-                                let mut pk =
-                                    qexed_net::packet::packet_pool::StatusResponse::new();
+                                let mut pk = qexed_net::packet::packet_pool::StatusResponse::new();
                                 let json_response = build_server_status(players);
                                 if json_response.is_err() {
                                     log::error!(
@@ -166,6 +159,16 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                 if let Some(player) = &mut packet_socket.player{
                                     player.locale = pk.locale.clone();
                                     player.view_distance = pk.view_distance;
+                                    // 发 SelectKnownPacks 数据包
+                                    let mut select_known_packs = qexed_net::packet::packet_pool::SelectKnownPacks::new();
+                                    select_known_packs.known_packs =vec![
+                                        qexed_net::packet::packet_pool::KnownPacks {
+                                            namespace: "minecraft".to_string(),
+                                            id: "core".to_string(),
+                                            version: "1.21.8".to_string(),
+                                        }
+                                    ];
+                                    let _ = packet_socket.send(&select_known_packs).await;
                                 }
                             }
                         }
@@ -178,6 +181,15 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                 let bus = GLOBAL_EVENT_BUS.clone();
                                 drop(packet_socket);
                                 bus.emit::<qexed_core::event::plugin_message::RawPluginMessageEvent>((Arc::clone(&packet_socket_raw),pk.channel.clone(),pk.data.clone())).await;
+                            }
+                        }
+                        0x07 => {
+                            if let Some(pk) = packet3
+                                .as_any()
+                                .downcast_ref::<qexed_net::packet::packet_pool::SelectKnownPacksCtoS>(
+                            ) {
+                                // 处理已知包
+                                log::info!("已知包: {:?}", pk.known_packs);
                             }
                         }
                         _ => {

@@ -13,6 +13,7 @@
     - [ ] 代理支持
 - [x] StatusRequest
     - [x] Ping
+    - [ ] 自定义 Ping 头像
 - [ ] Login
     - [ ] Mojang 正版验证
     - [ ] 解压缩
@@ -22,6 +23,10 @@
     - [x] 断开连接数据包
 - [ ] Configuration
     - [x] 收发 Plugin_Message 事件
+    - [x] SelectKnownPacks 数据包读写
+    - [ ] 自定义材质包支持
+    - [ ] 自定义资源包支持
+    - [ ] Forge 模组资源包支持
     - [ ] RegistryData 数据包支持
     - [ ] 注册表
     - [ ] forge 支持
