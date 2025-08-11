@@ -1,0 +1,19 @@
+[package]
+name = "qexed"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# 项目
+mc_config.workspace = true
+qexed_config.workspace = true
+# 外部
+anyhow.workspace = true
+tklog.workspace = true
+tokio.workspace = true
+log.workspace = true
+qexed_single_server.workspace = true
+
+[[bin]]
+name = "qexed"
+path = "src/main.rs"

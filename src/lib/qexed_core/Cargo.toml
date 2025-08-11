@@ -1,0 +1,20 @@
+[package]
+name = "qexed_core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+async-trait = "0.1.88"
+futures.workspace = true
+tokio.workspace = true
+tokio-stream = "0.1.17"
+once_cell.workspace = true
+phf = "0.12.1"
+flume = "0.11.1"
+rust_event.workspace = true
+qexed_net.workspace = true
+paste = "1.0.15"
+ctor = "0.4.3"
+log.workspace = true
+bytes.workspace = true
+crab_nbt.workspace = true

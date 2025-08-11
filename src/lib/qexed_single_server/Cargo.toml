@@ -1,0 +1,22 @@
+[package]
+name = "qexed_single_server"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow.workspace = true
+bytes.workspace = true
+log.workspace = true
+mc_config.workspace = true
+qexed_config.workspace = true
+qexed_core.workspace= true
+qexed_net.workspace= true
+once_cell.workspace = true
+rand.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+tklog.workspace = true
+uuid = "1.17.0"
+futures-util = "0.3.31"
+tokio = { workspace = true, features = ["full","rt-multi-thread"] }
+rust_event.workspace = true

@@ -1,0 +1,303 @@
+log_level = "INFO"
+# MC网络相关设置
+[network]
+# 绑定指定ip(如果你要绑定任意ip就不需要改该字段)
+ip = "0.0.0.0"
+# 服务端端口（JAVA版默认 25565）
+port = 25565
+# 节点的相关设置
+[node]
+# 节点模式
+# single_server:单服务端
+# child_node:子节点 
+# parent_node:母节点
+# control:控制
+#
+# 单服务端:
+# 在只使用一个服务端的情况下运行，不会涉及到跨节点通信带来的网络延迟问题
+# 若你使用代理，则可选此模式
+# 同时单服务端模式将自带控制模式带来的功能
+#
+# 子节点:
+# 子节点模式下,需要配置母节点,并且部分数据将改从母节点获取。
+# 若子母节点之间延迟大于1ms,则子母节点将毫无意义
+# 
+# 母节点:
+# 母节点模式下,MC服务端的相关设置将失效。专处理子节点的数据请求，母节点不可用于代理。（相对mc群组服来说,该程序是独立的)
+# 玩家无法直接连接母节点。
+# 
+# 控制:
+# 控制模式是专门针对单服务端和母节点的控制服，玩家无法直接进入控制模式(也意味着该模式下程序不具备mc服务端的设置)
+# 在控制模式下,你需要配置母节点才能正常使用。
+mode = "single_server"
+# 子节点模式配置
+[node.child_node]
+# 当前节点名(所有节点都需要设置独一无二的名字)
+name = "Server1"
+# 通信密钥,所有节点都需要配置
+secret = ""
+# 强制跨网段
+# 意味着无论目标节点是否是同网段的,都将走母节点传输数据而非直连
+force_cross_subnet_connection = false
+# 母节点IP与端口
+ip="127.0.0.1:32757"
+# 母节点模式配置
+[node.parent_node]
+# 绑定指定ip(如果你要绑定任意ip就不需要改该字段)
+ip="0.0.0.0"
+# 服务端端口（母节点默认 32754）
+port=32754
+# 通信密钥,所有节点都需要配置
+secret = ""
+# 控制模式
+[node.control]
+# 是否启用web界面
+is_web = false
+# 是否启用命令行
+is_cli = false
+# web的相关设置
+# TIP:有关https的设置暂时不支持
+# 若有需要请自行使用Nginx等反向代理
+[node.control.web]
+# IP地址的设置
+ip="0.0.0.0"
+# http端口设置(标准http端口是80)
+port=8080
+# 母节点ip和端口
+parent_node_ip="127.0.0.1:32754"
+# 通信密钥,所有节点都需要配置
+secret = ""
+# 游戏有关设置
+[game]
+# 今日消息,将随机选取一条。
+#（控制模式与母节点模式此选项不可用)
+motd = [
+    "来呀,快活呀!",
+    "赶紧的",
+    "祝你玩的开心!",
+    ]
+# 最大玩家数
+# 若单服务端模式,则是这个服务器的玩家数
+# 若子节点模式,则是这个节点的玩家数
+# 若母节点模式,则是这个集群的玩家数
+max_player = 100
+# 服务器每秒应运行多少次“ticks”操作。这与《我的世界》的默认设置相同。
+# 注:子节点模式与控制模式配置此参数无效
+tps=20
+# 白名单
+# 服务器是否应该通过白名单来验证玩家身份
+# 注:子节点模式和控制模式此参数无效
+whitelist = false
+# 网络压缩阈值（可以为负值）。此值决定了数据包需达到多长时才会进行压缩。
+# 极小的数据包在压缩后其大小可能会有所增加，因此将压缩阈值设为 0 并非在所有情况下都完美适用。
+# 将其设置为 -1 可禁用压缩功能。
+# 注:控制模式不涉及MC数据包传输,故无效
+# 注:母节点模式下并不与玩家通信,故无效
+# 注:子节点模式下,建议直接 -1,该数值没有意义
+network_compression_threshold = 256
+# 校验解压后的数据包。这样做有助于发现任何数据损坏情况，但会降低处理速度。
+# 注:同 network_compression_threshold 的说明,部分模式不生效
+verify_decompressed_packets = true
+# 区块渲染距离。这是服务器会为玩家周围区域加载的块的数量范围。
+# 注:子节点模式与控制模式不生效，子节点模式将从母节点获取相关设置
+chunk_render_distance = 12
+# 插件同步:
+# 将在服务端启动时自带从母节点下载插件并卸载子节点被遗弃的插件
+# 注:仅子节点模式有效
+plugin_sync = true
+# 插件配置同步:
+# 在启动时,将从母服务器拉取预设的配置文件并渲染后保存在本地
+# 警告: 若子节点配置有差异,则不能启用此配置
+plugin_config_sync = false
+# 是否启用末地
+# 子节点此参数无效
+allow-end = false
+# 是否启用地狱
+# 子节点此参数无效
+allow-hell = false
+# 是否启用正版验证(仅单服务端模式可用)
+online-mode=true
+# 世界相关设置
+[game.world]
+# 地图名
+# 注:母节点与控制模式配置此参数无效,且无意义)
+world="我的世界"
+# 世界数据库的路径(这包括多世界的支持)
+# 注: 子节点配置此参数无效
+db_path = "world"
+# 加载时校验区块数据。这是发现数据损坏的好方法，但会降低加载速度。
+verify_chunk_data = true
+# 映射大小 (Map size)
+# 数据库内存映射的最大大小（单位：GB）。本质上，这个值需要足够大，
+# 以便在数据开始写入磁盘前容纳所有内容。但这并非实际内存使用量，
+# 它只是表示我们可以根据需要映射到内存中的空间量。因此，如果您愿意，
+# 可以将其设置为一个非常大的数字，它并不会实际占用那么多物理内存，
+# 只会显示为虚拟内存使用量。
+# 默认值为 1TB，对大多数世界来说绰绰有余。如果您拥有一个巨大的世界，请将此值设得更高。
+map_size = 1_000
+# 缓存条目的生存时间（单位：秒）。
+cache_ttl = 60
+# 缓存的最大容量（单位：kb）。
+cache_capacity = 20_000
+# 数据库相关设置
+[database]
+# ========================
+# 数据库全局设置
+# ========================
+
+# 是否启用数据库连接池
+connection_pool_enabled = true
+
+# 连接池最大连接数
+max_connections = 100
+
+# 连接池最小空闲连接数
+min_idle_connections = 5
+
+# 连接超时时间(毫秒)
+connection_timeout = 3000
+
+# ========================
+# MongoDB 配置
+# ========================
+[database.mongodb]
+# 是否启用 MongoDB
+enabled = true
+
+# 连接字符串 (格式: mongodb://用户名:密码@主机:端口)
+connection_string = "mongodb://admin:password@localhost:27017"
+
+# 默认数据库名称
+default_database = "app_db"
+
+# 连接超时时间(秒)
+timeout = 10
+
+# 是否启用 SSL 加密
+ssl_enabled = false
+
+# 读写偏好 (可选: primary, primaryPreferred, secondary, secondaryPreferred, nearest)
+read_preference = "primary"
+
+# 写入确认级别 (可选: 0-不确认, 1-主节点确认, majority-大多数节点确认)
+write_concern = "majority"
+
+# 最大连接池大小
+max_pool_size = 50
+
+# 最小连接池大小
+min_pool_size = 5
+
+# ========================
+# Redis 配置
+# ========================
+
+[database.redis]
+# 是否启用 Redis
+enabled = true
+
+# Redis 服务器地址
+host = "localhost"
+
+# Redis 端口
+port = 6379
+
+# Redis 访问密码 (无密码留空)
+password = ""
+
+# 默认数据库索引 (0-15)
+database = 0
+
+# 连接超时时间(毫秒)
+timeout = 2000
+
+# 最大连接数
+max_connections = 20
+
+# 最大空闲连接数
+max_idle_connections = 5
+
+# 是否启用 TLS 加密
+tls_enabled = false
+
+# 键过期扫描频率(秒)
+key_expiration_scan_interval = 60
+
+# ========================
+# MySQL 配置
+# ========================
+
+[database.mysql]
+# 是否启用 MySQL
+enabled = true
+
+# 服务器地址
+host = "localhost"
+
+# 服务器端口
+port = 3306
+
+# 数据库名称
+database = "app_db"
+
+# 用户名
+username = "root"
+
+# 密码
+password = "mysql_password"
+
+# 字符集编码
+charset = "utf8mb4"
+
+# 连接超时时间(秒)
+connect_timeout = 5
+
+# 最大连接数
+max_connections = 30
+
+# 最大空闲连接数
+max_idle_connections = 10
+
+# 是否启用 SSL
+ssl_enabled = true
+
+# 连接最长存活时间(分钟)
+max_lifetime = 30
+
+# 慢查询阈值(秒)，超过此时间的查询会被记录
+slow_query_threshold = 1.0
+
+# ========================
+# 缓存设置
+# ========================
+
+[database.cache]
+# 缓存类型 (可选: redis, memory, none)
+# 注:仅单服务端模式可选,其他模式固定redis
+type = "redis"
+
+# 默认缓存过期时间(秒)
+default_ttl = 300
+
+# 最大缓存条目数 (仅当 type=memory 时生效)
+max_entries = 1000
+
+# 缓存键前缀 (防止多应用冲突)
+key_prefix = "app_cache_"
+
+# ========================
+# ORM 设置
+# ========================
+
+[database.orm]
+# 自动迁移数据库结构
+auto_migrate = true
+
+# 是否记录所有 SQL 查询
+log_queries = false
+
+# 批量操作最大条目数
+batch_size = 100
+
+# 查询超时时间(秒)
+query_timeout = 10
