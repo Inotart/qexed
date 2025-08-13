@@ -27,8 +27,8 @@ impl Packet for RegistryData {
         w.serialize(&self.entries);
     }
     fn deserialize(&mut self, r: &mut PacketReader) {
-        self.registry_id = r.deserialize();
-        self.entries = r.deserialize();
+        self.registry_id = r.string();
+        self.entries = r.vec();
     }
     fn as_any(&self) -> &dyn std::any::Any {
         self

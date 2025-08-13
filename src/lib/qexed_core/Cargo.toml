@@ -18,3 +18,4 @@ ctor = "0.4.3"
 log.workspace = true
 bytes.workspace = true
 crab_nbt.workspace = true
+anyhow.workspace = true

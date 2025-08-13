@@ -17,7 +17,7 @@ pub async fn main() -> Result<(), anyhow::Error> {
     let tcplistener = qexed_net::new_tcp_server(&config.network.ip, config.network.port).await?;
     start_task(tcplistener).await?;
     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-
+    
     Ok(())
 }
 
@@ -183,13 +183,35 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                 bus.emit::<qexed_core::event::plugin_message::RawPluginMessageEvent>((Arc::clone(&packet_socket_raw),pk.channel.clone(),pk.data.clone())).await;
                             }
                         }
+                        0x03 => {
+                            if let Some(pk) = packet3
+                                .as_any()
+                                .downcast_ref::<qexed_net::packet::packet_pool::FinishConfigurationCtoS>(
+                            ) {
+                                // 切换到play状态
+                                client_status = PacketState::Play;
+                            }
+                        }
                         0x07 => {
                             if let Some(pk) = packet3
                                 .as_any()
                                 .downcast_ref::<qexed_net::packet::packet_pool::SelectKnownPacksCtoS>(
                             ) {
                                 // 处理已知包
-                                log::info!("已知包: {:?}", pk.known_packs);
+                                // 对抗注册
+                                let pks = qexed_core::registry::get_registry_data_packets();
+                                for p in pks {
+                                    if let Some(p2) = p.as_any().downcast_ref::<qexed_net::packet::packet_pool::RegistryData>() {
+                                        let _ = packet_socket.send(p2).await;
+                                    }
+                                }
+                                // 发送 UpdateTags 数据包
+                                if let Some(p2) = qexed_core::update_tags::get_update_tags_packet().as_any().downcast_ref::<qexed_net::packet::packet_pool::UpdateTags>() {
+                                    let _ = packet_socket.send(p2).await;
+                                }
+                                // 发送 FinishConfigurationStoC 数据包
+                                let finish_configuration = qexed_net::packet::packet_pool::FinishConfigurationStoC::new();
+                                let _ = packet_socket.send(&finish_configuration).await;
                             }
                         }
                         _ => {

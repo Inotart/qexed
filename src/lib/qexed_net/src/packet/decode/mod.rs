@@ -87,7 +87,6 @@ impl<'a> PacketReader<'a> {
         // 清空现有属性并预分配空间
         let mut value: Vec<T> = vec![];
         value.reserve(len);
-
         // 遍历读取每个属性
         for _ in 0..len {
             let mut a = T::new();
