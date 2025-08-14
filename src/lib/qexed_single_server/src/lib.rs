@@ -1,4 +1,5 @@
 use anyhow::{Ok, Result};
+use qexed_core::utils::alloci32::ALLOC;
 use qexed_net::{
     mojang_online::query_mojang_for_usernames, net_types::packet::PacketState,
     packet::packet_pool::DisconnectLogin, player::Player, read_packet,
@@ -23,6 +24,8 @@ pub async fn main() -> Result<(), anyhow::Error> {
 
 pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
     let mut players: i64 = 0;
+    // 维护实体id信息
+    let alloc_entity_id: Arc<Mutex<qexed_core::utils::alloci32::Alloci32>>= Arc::new(Mutex::new(qexed_core::utils::alloci32::Alloci32::new()));
     while let std::result::Result::Ok((socket, socketaddr)) = tcplistener.accept().await {
         tokio::spawn(async move {
             let packet_socket_raw = Arc::new(Mutex::new(qexed_net::PacketListener::new(

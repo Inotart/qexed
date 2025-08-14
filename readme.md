@@ -5,6 +5,10 @@
 参考了 FerrumC 等众多项目制作
 > 目前版本对应:1.21.8
 
+该项目基于Redis与MongoDB制作,因此使用前需部署MongoDB和Redis服务器
+
+- Redis: 用于缓存区块以及玩家信息
+- MongoDB: 存储玩家数据
 # 计划
 下面根据我的世界java服网络数据包协议的进服顺序安排开发计划
 - [ ] Handshake
@@ -31,7 +35,7 @@
     - [ ] 注册表
     - [ ] forge 支持
     - [ ] geyser 支持
-
+- [] play
 # Forge模组兼容性
 > 注:此部分尚未制作
 >

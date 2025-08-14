@@ -69,13 +69,10 @@ pub struct GameConfig {
     pub chunk_render_distance: u8,
     pub plugin_sync: bool,
     pub plugin_config_sync: bool,
-    #[serde(rename = "allow-end")]
-    pub allow_end: bool,
-    #[serde(rename = "allow-hell")]
-    pub allow_hell: bool,
     #[serde(rename="online-mode")]
     pub online_mode:bool,
     pub world: WorldConfig,
+    pub dimensions: Dimensions,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -86,6 +83,14 @@ pub struct WorldConfig {
     pub map_size: u64,
     pub cache_ttl: u64,
     pub cache_capacity: u64,
+    pub is_show_world_seed: bool,
+}
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Dimensions {
+    #[serde(rename = "allow-end")]
+    pub allow_end: bool,
+    #[serde(rename = "allow-hell")]
+    pub allow_hell: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -103,7 +108,6 @@ pub struct DatabaseConfig {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MongoDBConfig {
-    pub enabled: bool,
     pub connection_string: String,
     pub default_database: String,
     pub timeout: u64,
@@ -116,7 +120,6 @@ pub struct MongoDBConfig {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RedisConfig {
-    pub enabled: bool,
     pub host: String,
     pub port: u16,
     pub password: String,
@@ -206,8 +209,6 @@ impl Default for Config {
                 chunk_render_distance: 12,
                 plugin_sync: true,
                 plugin_config_sync: false,
-                allow_end: false,
-                allow_hell: false,
                 online_mode:true,
                 world: WorldConfig {
                     world: "我的世界".to_string(),
@@ -216,6 +217,11 @@ impl Default for Config {
                     map_size: 1_000,
                     cache_ttl: 60,
                     cache_capacity: 20_000,
+                    is_show_world_seed: false,
+                },
+                dimensions: Dimensions {
+                    allow_end: false,
+                    allow_hell: false,
                 },
             },
             database: DatabaseConfig {
@@ -224,7 +230,6 @@ impl Default for Config {
                 min_idle_connections: 5,
                 connection_timeout: 3000,
                 mongodb: MongoDBConfig {
-                    enabled: true,
                     connection_string: "mongodb://admin:password@localhost:27017".to_string(),
                     default_database: "app_db".to_string(),
                     timeout: 10,
@@ -235,7 +240,6 @@ impl Default for Config {
                     min_pool_size: 5,
                 },
                 redis: RedisConfig {
-                    enabled: true,
                     host: "localhost".to_string(),
                     port: 6379,
                     password: "".to_string(),

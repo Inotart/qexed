@@ -19,3 +19,4 @@ log.workspace = true
 bytes.workspace = true
 crab_nbt.workspace = true
 anyhow.workspace = true
+mongodb = "3.2.4"
