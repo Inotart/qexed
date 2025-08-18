@@ -23,7 +23,6 @@ impl Packet for PluginMessageServer {
     }
     fn serialize(&self, w: &mut PacketWriter) {
         w.string(&self.channel);
-        println!("{:?}",self.data);
         w.byte_all(self.data.clone());
 
     }

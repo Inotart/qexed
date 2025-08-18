@@ -35,7 +35,11 @@
     - [ ] 注册表
     - [ ] forge 支持
     - [ ] geyser 支持
-- [] play
+- [ ] play
+    - [ ] MongoDB 支持
+    - [ ] Login 
+    - [ ] event_status 
+
 # Forge模组兼容性
 > 注:此部分尚未制作
 >

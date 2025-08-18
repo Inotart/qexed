@@ -106,7 +106,7 @@ connection_timeout = 3000
 connection_string = "mongodb://admin:password@localhost:27017"
 
 # 默认数据库名称
-default_database = "app_db"
+default_database = "qexed"
 
 # 连接超时时间(秒)
 timeout = 10

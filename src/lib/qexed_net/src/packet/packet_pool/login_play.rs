@@ -1,46 +1,42 @@
 use crate::{
-    net_types::{packet::Packet, position::Position, var_int::{ VarInt}},
+    net_types::{packet::Packet, position::Position, var_int::VarInt},
     packet::{decode::PacketReader, encode::PacketWriter},
 };
 
 /// play阶段第一个数据包
 #[derive(Debug, Default, PartialEq)]
 pub struct LoginPlay {
-    pub entity_id: VarInt,
+    pub entity_id: i32,
     pub is_hardcore: bool,
     pub dimension_names: Vec<String>,
     pub max_player: VarInt,
-    pub view_distance: VarInt,// 视距
-    pub simulation_distance: VarInt,// 模拟距离
+    pub view_distance: VarInt,       // 视距
+    pub simulation_distance: VarInt, // 模拟距离
     pub reduced_debug_info: bool,
     pub enable_respawn_screen: bool,
     pub do_limited_crafting: bool,
-    pub dimension_type:VarInt,
-    pub dimension_name:String,
-    pub hashed_seed:i64,
-    pub game_mode:u8,
-    pub previous_game_mode:i8,
+    pub dimension_type: VarInt,
+    pub dimension_name: String,
+    pub hashed_seed: i64,
+    pub game_mode: u8,
+    pub previous_game_mode: i8,
     pub is_debug: bool,
     pub is_flat: bool,
     pub has_death_location: bool,
-    pub death_dimension_name:Option<String>,
+    pub death_dimension_name: Option<String>,
     pub death_position: Option<Position>,
     pub portal_cooldown: VarInt,
-    pub is_telemetry_enabled: bool,
     pub sea_level: VarInt,
     pub enforces_secure_chat: bool,
-
-
-
 }
 impl LoginPlay {
     pub fn new() -> Self {
         LoginPlay {
-            entity_id: VarInt(0),
+            entity_id: 0,
             is_hardcore: false,
             dimension_names: Vec::new(),
             max_player: VarInt(0),
-            view_distance:VarInt(0),
+            view_distance: VarInt(0),
             simulation_distance: VarInt(0),
             reduced_debug_info: false,
             enable_respawn_screen: false,
@@ -52,11 +48,10 @@ impl LoginPlay {
             previous_game_mode: 0,
             is_debug: false,
             is_flat: false,
-            has_death_location:false,
+            has_death_location: false,
             death_dimension_name: None,
             death_position: None,
             portal_cooldown: VarInt(0),
-            is_telemetry_enabled: false,
             sea_level: VarInt(0),
             enforces_secure_chat: false,
         }
@@ -66,7 +61,7 @@ impl Packet for LoginPlay {
     fn id(&self) -> u32 {
         0x2b
     }
-    fn serialize(&self,w: &mut PacketWriter) {
+    fn serialize(&self, w: &mut PacketWriter) {
         w.serialize(&self.entity_id);
         w.serialize(&self.is_hardcore);
         w.serialize(&self.dimension_names);
@@ -84,10 +79,11 @@ impl Packet for LoginPlay {
         w.serialize(&self.is_debug);
         w.serialize(&self.is_flat);
         w.serialize(&self.has_death_location);
-        w.option_string(self.death_dimension_name.as_deref());
-        w.option(self.death_position.as_ref());
+        if self.has_death_location {
+            w.option_string(self.death_dimension_name.as_deref());
+            w.option(self.death_position.as_ref());
+        }
         w.serialize(&self.portal_cooldown);
-        w.serialize(&self.is_telemetry_enabled);
         w.serialize(&self.sea_level);
         w.serialize(&self.enforces_secure_chat);
     }
@@ -109,10 +105,11 @@ impl Packet for LoginPlay {
         self.is_debug = r.deserialize();
         self.is_flat = r.deserialize();
         self.has_death_location = r.deserialize();
-        self.death_dimension_name = r.option_string();
-        self.death_position = r.option();
+        if self.has_death_location {
+            self.death_dimension_name = r.option_string();
+            self.death_position = r.option();
+        }
         self.portal_cooldown = r.deserialize();
-        self.is_telemetry_enabled = r.deserialize();
         self.sea_level = r.deserialize();
         self.enforces_secure_chat = r.deserialize();
     }

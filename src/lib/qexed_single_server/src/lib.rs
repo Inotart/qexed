@@ -1,5 +1,6 @@
 use anyhow::{Ok, Result};
 use qexed_core::utils::alloci32::ALLOC;
+use qexed_net::net_types::var_int::VarInt;
 use qexed_net::{
     mojang_online::query_mojang_for_usernames, net_types::packet::PacketState,
     packet::packet_pool::DisconnectLogin, player::Player, read_packet,
@@ -30,7 +31,19 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
     // 维护实体id信息
     let alloc_entity_id: Arc<Mutex<qexed_core::utils::alloci32::Alloci32>>= Arc::new(Mutex::new(qexed_core::utils::alloci32::Alloci32::new()));
     let player_map: HashMap<Uuid, qexed_core::biology::player::Player> = HashMap::new();
+    // 连接monggodb
+        // 创建连接池
+    let pool = qexed_core::utils::mongo_dbconnection_pool::MongoDBConnectionPool::new().await?;
+    
+    // 打印连接池状态（MongoDB Rust driver does not expose pool status directly）
+    log::info!("创建mongodb连接成功");
+    pool.health_check().await?;
+    
+    // 获取默认数据库
+    let db = pool.default_db();
     while let std::result::Result::Ok((socket, socketaddr)) = tcplistener.accept().await {
+        let alloc_entity_id = Arc::clone(&alloc_entity_id);
+        let config = Arc::clone(&config);
         tokio::spawn(async move {
             let packet_socket_raw = Arc::new(Mutex::new(qexed_net::PacketListener::new(
                 socket, socketaddr,
@@ -231,18 +244,61 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                 let _ = packet_socket.send(&finish_configuration).await;
                                 // 发送 LoginPlay 数据包
                                 let mut login_play = qexed_net::packet::packet_pool::LoginPlay::new();
-                                login_play.entity_id = qexed_net::net_types::var_int::VarInt(entity_id);
+                                login_play.entity_id = entity_id;
                                 login_play.is_hardcore = false;// 硬核模式对我们暂时没啥用
-                                login_play.dimension_names = vec!["minecraft:overworld".to_string()];
+                                login_play.dimension_names = vec!["minecraft:overworld".to_string(),"minecraft:the_end".to_string(),"minecraft:the_nether".to_string()];
                                 login_play.max_player = qexed_net::net_types::var_int::VarInt(config.lock().await.game.max_player as i32);
-                                login_play.view_distance = qexed_net::net_types::var_int::VarInt(config.lock().await.game.view_distance as i32);
-                                login_play.simulation_distance = qexed_net::net_types::var_int::VarInt(config.lock().await.game.simulation_distance as i32);
+                                login_play.view_distance = qexed_net::net_types::var_int::VarInt(config.lock().await.game.chunk_render_distance as i32);
+                                login_play.simulation_distance = qexed_net::net_types::var_int::VarInt(config.lock().await.game.chunk_render_distance as i32);
+                                login_play.reduced_debug_info = false; // 减少调试信息
+                                login_play.enable_respawn_screen = false; // 启用重生界面
+                                // TODO: 这里需要后续代码实现,这里暂时快速开发不做设置兼容
+                                login_play.do_limited_crafting = false; // 限制制作，Doc都说没使用那就不管
+                                login_play.dimension_type = VarInt(0); // 维度类型,暂时不管
+                                login_play.dimension_name = "minecraft:overworld".to_string();
+                                // 不显示哈希
+                                login_play.hashed_seed = 0;
+                                // 游戏模式,暂时只写生存,后面支持
+                                login_play.game_mode = 0; // 0:生存,1:创造,2:冒险,3:旁观
+                                login_play.previous_game_mode = -1; // 上一个游戏模式,暂时不管
+                                login_play.is_debug = false; // 是否调试模式
+                                login_play.is_flat = false; // 是否平坦世界
+                                login_play.has_death_location = false; // 是否有死亡位置
+                                login_play.portal_cooldown = qexed_net::net_types::var_int::VarInt(0); // 传送门冷却时间
+                                login_play.sea_level = qexed_net::net_types::var_int::VarInt(63); // 海平面高度
+                                login_play.enforces_secure_chat = false; // 强制安全聊天
+                                let _ = packet_socket.send(&login_play).await;
                             }
                         }
                         _ => {
                             log::info!("未知的数据包与内容:{:?}", packets.clone());
                         }
                     },
+                    PacketState::Play => match packet3.id() {
+                        0x0c => {
+                            if let Some(pk) = packet3
+                                .as_any()
+                                .downcast_ref::<qexed_net::packet::packet_pool::ChunkBatchStart>()
+                            {
+                                // 处理 ChunkBatchStart 数据包
+                                // log::info!("ChunkBatchStart 数据包: {:?}", pk);
+                            }
+                        }
+                        0x1E => {
+                            if let Some(pk) = packet3
+                                .as_any()
+                                .downcast_ref::<qexed_net::packet::packet_pool::EntityEvent>()
+                            {
+                                // 处理 EntityEvent 数据包
+                                // log::info!("EntityEvent 数据包: {:?}", pk);
+                                // 这里可以处理实体事件
+                            }
+                        }
+                        _ => {
+                            log::info!("未知的数据包与内容:{:?}", packets.clone());
+                        }
+                    
+                    }
                     _ => {}
                 }
             }

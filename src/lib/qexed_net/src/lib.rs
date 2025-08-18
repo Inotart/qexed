@@ -1,16 +1,8 @@
 use std::io::ErrorKind;
 use std::net::SocketAddr;
-use std::ptr::null;
-use std::time::Duration;
-
-use futures::stream;
-use rand::Rng;
-use tokio::io;
 use tokio::net::TcpStream;
 use tokio::{io::AsyncReadExt, net::TcpListener};
 use std::io::{Error, Result};
-use futures::{Stream};
-use async_stream::stream;
 use bytes::{BytesMut, Buf};
 use crate::net_types::packet::{Packet, PacketState};
 use crate::net_types::var_int::VarInt;
@@ -247,7 +239,7 @@ pub fn read_packet(data: Vec<u8>,status:PacketState)->anyhow::Result<Box<dyn Pac
         PacketState::Configuration => crate::packet::status_pool::configuration::id_to_packet(id),
         PacketState::Handshake => crate::packet::status_pool::handshake::id_to_packet(id),
         PacketState::Login => crate::packet::status_pool::login::id_to_packet(id),
-        PacketState::Play => todo!(),
+        PacketState::Play => crate::packet::status_pool::play::id_to_packet(id),
         PacketState::Status => crate::packet::status_pool::status::id_to_packet(id),
     };
     decoded.deserialize(&mut reader);
