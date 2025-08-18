@@ -24,3 +24,4 @@ uuid.workspace = true
 serde.workspace = true
 qexed_config.workspace = true
 chrono.workspace = true
+bson = "2.15.0"

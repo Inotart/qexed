@@ -1,11 +1,14 @@
+use bson::{spec::BinarySubtype, Binary};
 use mongodb::{bson::{self, doc, DateTime}, Collection, Database};
 use qexed_net::net_types::{position::Position, subdata::Subdata};
-use uuid::Uuid;
+
 use serde::{Deserialize, Serialize};
 use anyhow::{Context, Result};
 use chrono::Utc;
+use uuid::Uuid;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Player {
+    #[serde(with = "uuid_as_binary")]
     #[serde(rename = "_id")] // 使用 MongoDB 的 _id 字段
     pub uuid: Uuid,
     pub username: String,
@@ -19,6 +22,7 @@ pub struct Player {
     pub health: f32,
     pub is_online: bool,
 }
+
 impl Player {
     pub fn new() -> Self {
         Player {
@@ -74,7 +78,11 @@ impl Player {
         collection: &Collection<Player>,
         uuid: Uuid,
     ) -> Result<Option<Player>> {
-        let filter = doc! { "_id": uuid.to_string() };
+        let bin = Binary {
+            subtype: BinarySubtype::Uuid,
+            bytes: uuid.as_bytes().to_vec(),
+        };
+        let filter = doc! { "_id": bin  };
         collection.find_one(filter).await.map_err(|e| e.into())
     }
 
@@ -91,7 +99,11 @@ impl Player {
     /// 保存玩家信息到数据库
     pub async fn save(&self, db: &Database) -> Result<()> {
         let collection = Self::get_player_collection(db);
-        let filter = doc! { "_id": self.uuid.to_string() };
+        let bin = Binary {
+            subtype: BinarySubtype::Uuid,
+            bytes: self.uuid.as_bytes().to_vec(),
+        };
+        let filter = doc! { "_id": bin  };
         collection.replace_one(filter, self).await?;
         Ok(())
     }
@@ -115,5 +127,53 @@ impl Player {
         self.is_online = is_online;
         self.last_login = bson::DateTime::now(); // 更新最后登录时间
         self.save(db).await
+    }
+}
+mod uuid_as_binary {
+    use bson::{Binary, spec::BinarySubtype};
+    use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
+    use uuid::Uuid;
+    
+    /// 将 UUID 序列化为 BSON Binary (subtype 4)
+    pub fn serialize<S>(uuid: &Uuid, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let bin = Binary {
+            subtype: BinarySubtype::Uuid,
+            bytes: uuid.as_bytes().to_vec(),
+        };
+        // 直接序列化 Binary 对象
+        bin.serialize(serializer)
+    }
+    
+    /// 将 BSON Binary (subtype 4) 反序列化为 UUID
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Uuid, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bin = bson::Binary::deserialize(deserializer)?;
+        
+        // 验证二进制格式
+        if bin.subtype != BinarySubtype::Uuid {
+            return Err(D::Error::custom(format!(
+                "Expected UUID binary subtype (4), got {:?}",
+                bin.subtype
+            )));
+        }
+        
+        if bin.bytes.len() != 16 {
+            return Err(D::Error::custom(format!(
+                "Invalid UUID length: expected 16 bytes, got {}",
+                bin.bytes.len()
+            )));
+        }
+        
+        // 转换为 UUID
+        let bytes: [u8; 16] = bin.bytes
+            .try_into()
+            .map_err(|_| D::Error::custom("Failed to convert to UUID bytes"))?;
+        
+        Ok(Uuid::from_bytes(bytes))
     }
 }
