@@ -1706,6 +1706,7 @@ dependencies = [
  "rust_event",
  "tokio",
  "tokio-stream",
+ "uuid",
 ]
 
 [[package]]

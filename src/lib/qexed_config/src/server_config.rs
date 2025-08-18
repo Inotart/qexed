@@ -102,8 +102,6 @@ pub struct DatabaseConfig {
     pub mongodb: MongoDBConfig,
     pub redis: RedisConfig,
     pub mysql: MySQLConfig,
-    pub cache: CacheConfig,
-    pub orm: ORMConfig,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -264,18 +262,7 @@ impl Default for Config {
                     ssl_enabled: true,
                     max_lifetime: 30,
                     slow_query_threshold: 1.0,
-                },
-                cache: CacheConfig {
-                    default_ttl: 300,
-                    max_entries: 1000,
-                    key_prefix: "app_cache_".to_string(),
-                },
-                orm: ORMConfig {
-                    auto_migrate: true,
-                    log_queries: false,
-                    batch_size: 100,
-                    query_timeout: 10,
-                },
+                }
             },
         }
     }

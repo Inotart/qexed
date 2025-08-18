@@ -6,6 +6,8 @@ use qexed_net::{
 };
 use rand::prelude::*;
 use serde_json::json;
+use uuid::Uuid;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::{self, net::TcpListener};
@@ -24,8 +26,10 @@ pub async fn main() -> Result<(), anyhow::Error> {
 
 pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
     let mut players: i64 = 0;
+    let config = Arc::new(Mutex::new(qexed_config::get_global_config()?));
     // 维护实体id信息
     let alloc_entity_id: Arc<Mutex<qexed_core::utils::alloci32::Alloci32>>= Arc::new(Mutex::new(qexed_core::utils::alloci32::Alloci32::new()));
+    let player_map: HashMap<Uuid, qexed_core::biology::player::Player> = HashMap::new();
     while let std::result::Result::Ok((socket, socketaddr)) = tcplistener.accept().await {
         tokio::spawn(async move {
             let packet_socket_raw = Arc::new(Mutex::new(qexed_net::PacketListener::new(
@@ -33,6 +37,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
             )));
             log::info!("客户端 {}:{} 创建连接", socketaddr.ip(), socketaddr.port());
             let mut client_status = PacketState::Handshake;
+            let mut player_conn = qexed_core::biology::player::Player::new();
             loop {
                 let mut packet_socket = packet_socket_raw.lock().await;
                 let raw_packets = packet_socket.read().await;
@@ -122,7 +127,8 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                     player.name = loginpk.player_name.clone();
                                     player.uuids = loginpk.player_uuid.clone();
                                     packet_socket.player = Some(player);
-
+                                    player_conn.name = loginpk.player_name.clone();
+                                    player_conn.uuids = loginpk.player_uuid.clone();
                                     let _ = packet_socket.send(&pk).await;
                                     continue;
                                 };
@@ -212,9 +218,25 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                 if let Some(p2) = qexed_core::update_tags::get_update_tags_packet().as_any().downcast_ref::<qexed_net::packet::packet_pool::UpdateTags>() {
                                     let _ = packet_socket.send(p2).await;
                                 }
+                                let entity_result = alloc_entity_id.lock().await.get();
+                                if entity_result.is_err() {
+                                    log::error!("获取实体ID失败");
+                                    // 发送disconnected 数据包,这里暂时没写
+                                    return;
+                                }
+                                let entity_id = entity_result.unwrap();
+                                player_conn.entity_id = entity_id;
                                 // 发送 FinishConfigurationStoC 数据包
                                 let finish_configuration = qexed_net::packet::packet_pool::FinishConfigurationStoC::new();
                                 let _ = packet_socket.send(&finish_configuration).await;
+                                // 发送 LoginPlay 数据包
+                                let mut login_play = qexed_net::packet::packet_pool::LoginPlay::new();
+                                login_play.entity_id = qexed_net::net_types::var_int::VarInt(entity_id);
+                                login_play.is_hardcore = false;// 硬核模式对我们暂时没啥用
+                                login_play.dimension_names = vec!["minecraft:overworld".to_string()];
+                                login_play.max_player = qexed_net::net_types::var_int::VarInt(config.lock().await.game.max_player as i32);
+                                login_play.view_distance = qexed_net::net_types::var_int::VarInt(config.lock().await.game.view_distance as i32);
+                                login_play.simulation_distance = qexed_net::net_types::var_int::VarInt(config.lock().await.game.simulation_distance as i32);
                             }
                         }
                         _ => {
