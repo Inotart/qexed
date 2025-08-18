@@ -2,7 +2,8 @@ use crate::{
     net_types::subdata::Subdata,
     packet::{decode::PacketReader, encode::PacketWriter},
 };
-#[derive(Debug, Default, PartialEq)]
+use serde::{Deserialize, Serialize};
+#[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Position {
     x: i32,
     y: i32,

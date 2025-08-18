@@ -1,4 +1,5 @@
 use anyhow::{Ok, Result};
+use mongodb::Collection;
 use qexed_core::utils::alloci32::ALLOC;
 use qexed_net::net_types::var_int::VarInt;
 use qexed_net::{
@@ -33,24 +34,28 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
     let player_map: HashMap<Uuid, qexed_core::biology::player::Player> = HashMap::new();
     // 连接monggodb
         // 创建连接池
-    let pool = qexed_core::utils::mongo_dbconnection_pool::MongoDBConnectionPool::new().await?;
+    let pool = Arc::new(Mutex::new(qexed_core::utils::mongo_dbconnection_pool::MongoDBConnectionPool::new().await?));
     
     // 打印连接池状态（MongoDB Rust driver does not expose pool status directly）
     log::info!("创建mongodb连接成功");
-    pool.health_check().await?;
+    pool.lock().await.health_check().await?;
     
     // 获取默认数据库
-    let db = pool.default_db();
+    
     while let std::result::Result::Ok((socket, socketaddr)) = tcplistener.accept().await {
         let alloc_entity_id = Arc::clone(&alloc_entity_id);
         let config = Arc::clone(&config);
+        let pool = Arc::clone(&pool);
+
         tokio::spawn(async move {
+            let mongo_pool = pool.lock().await;
             let packet_socket_raw = Arc::new(Mutex::new(qexed_net::PacketListener::new(
                 socket, socketaddr,
             )));
             log::info!("客户端 {}:{} 创建连接", socketaddr.ip(), socketaddr.port());
             let mut client_status = PacketState::Handshake;
             let mut player_conn = qexed_core::biology::player::Player::new();
+            let db = mongo_pool.default_db();
             loop {
                 let mut packet_socket = packet_socket_raw.lock().await;
                 let raw_packets = packet_socket.read().await;
@@ -140,8 +145,8 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                     player.name = loginpk.player_name.clone();
                                     player.uuids = loginpk.player_uuid.clone();
                                     packet_socket.player = Some(player);
-                                    player_conn.name = loginpk.player_name.clone();
-                                    player_conn.uuids = loginpk.player_uuid.clone();
+                                    player_conn.username = loginpk.player_name.clone();
+                                    player_conn.uuid = loginpk.player_uuid.clone();
                                     let _ = packet_socket.send(&pk).await;
                                     continue;
                                 };
@@ -237,8 +242,19 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                     // 发送disconnected 数据包,这里暂时没写
                                     return;
                                 }
+                                let username = player_conn.username.clone();
                                 let entity_id = entity_result.unwrap();
+                                player_conn = match qexed_core::biology::player::Player::load_or_create(&db, player_conn.uuid).await {
+                                    Result::Ok(player) => player,
+                                    Err(e) => {
+                                        log::error!("加载或创建玩家失败: {:?}", e);
+                                        // 发送disconnected 数据包,这里暂时没写
+                                        return;
+                                    }
+                                };
                                 player_conn.entity_id = entity_id;
+                                player_conn.username = username;
+
                                 // 发送 FinishConfigurationStoC 数据包
                                 let finish_configuration = qexed_net::packet::packet_pool::FinishConfigurationStoC::new();
                                 let _ = packet_socket.send(&finish_configuration).await;
@@ -267,7 +283,12 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                 login_play.portal_cooldown = qexed_net::net_types::var_int::VarInt(0); // 传送门冷却时间
                                 login_play.sea_level = qexed_net::net_types::var_int::VarInt(63); // 海平面高度
                                 login_play.enforces_secure_chat = false; // 强制安全聊天
-                                let _ = packet_socket.send(&login_play).await;
+                                // let _ = packet_socket.send(&login_play).await;
+                                // Player::load_by_uuid(
+                                // let collection: Collection<Player> = db.collection("players");
+                                // let p = mongo_pool.lock().await;
+                                // 保存数据库
+                                player_conn.save(&db).await.unwrap();
                             }
                         }
                         _ => {
