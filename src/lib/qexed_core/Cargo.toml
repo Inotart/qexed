@@ -30,3 +30,6 @@ phf.workspace = true
 flume.workspace = true
 paste.workspace = true
 ctor.workspace = true
+rand.workspace = true
+rayon.workspace = true
+fastrand.workspace = true
