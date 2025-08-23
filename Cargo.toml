@@ -10,7 +10,9 @@ members = [
     "src/lib/qexed_net",
     "src/lib/qexed_parent_node",
     "src/lib/qexed_single_server",
-    "src/lib/qexed_web",
+    "src/lib/qexed_web", 
+    "src/lib/qexed_world", 
+    "src/lib/qexed_worldgen",
 ]
 [workspace.dependencies]
 thiserror = "1.0"
@@ -27,6 +29,8 @@ qexed_config ={ path="./src/lib/qexed_config"}
 qexed_single_server ={ path="./src/lib/qexed_single_server"}
 qexed_core ={ path="./src/lib/qexed_core"}
 qexed_net ={ path="./src/lib/qexed_net"}
+qexed_world ={ path="src/lib/qexed_world"}
+qexed_worldgen ={ path="src/lib/qexed_worldgen"}
 futures = "0.3.31"
 tracing = "0.1.41"
 typename = "0.1.2"
