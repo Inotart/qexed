@@ -56,7 +56,6 @@
 
 
 
-use qexed_config::Config;
 use tklog::{Format, ASYNC_LOG,MODE};
 
 

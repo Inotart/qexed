@@ -1,12 +1,10 @@
 use anyhow::Ok;
-use futures::future::err;
 use once_cell::sync::Lazy;
 use reqwest::Client;
 use serde::Deserialize;
 use thiserror::Error;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use tokio::task;
 use uuid::Uuid;
 
 // 全局缓存 (线程安全)

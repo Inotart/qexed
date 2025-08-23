@@ -60,6 +60,12 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                 let mut packet_socket = packet_socket_raw.lock().await;
                 let raw_packets = packet_socket.read().await;
                 if raw_packets.is_err() {
+                    if player_conn.uuid != Uuid::nil() {
+                        player_conn.is_online = false;
+                        player_conn.save(&db).await.unwrap();
+                    }
+                    player_conn.is_online = false;
+                    player_conn.save(&db).await.unwrap();
                     log::info!("客户端 {}:{} 断开连接", socketaddr.ip(), socketaddr.port());
                     return;
                 }
@@ -211,7 +217,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                             }
                         }
                         0x03 => {
-                            if let Some(pk) = packet3
+                            if let Some(_pk) = packet3
                                 .as_any()
                                 .downcast_ref::<qexed_net::packet::packet_pool::FinishConfigurationCtoS>(
                             ) {
@@ -220,7 +226,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                             }
                         }
                         0x07 => {
-                            if let Some(pk) = packet3
+                            if let Some(_pk) = packet3
                                 .as_any()
                                 .downcast_ref::<qexed_net::packet::packet_pool::SelectKnownPacksCtoS>(
                             ) {
@@ -254,6 +260,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                 };
                                 player_conn.entity_id = entity_id;
                                 player_conn.username = username;
+                                player_conn.is_online = true;
 
                                 // 发送 FinishConfigurationStoC 数据包
                                 let finish_configuration = qexed_net::packet::packet_pool::FinishConfigurationStoC::new();
@@ -297,7 +304,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                     },
                     PacketState::Play => match packet3.id() {
                         0x0c => {
-                            if let Some(pk) = packet3
+                            if let Some(_pk) = packet3
                                 .as_any()
                                 .downcast_ref::<qexed_net::packet::packet_pool::ChunkBatchStart>()
                             {
@@ -306,7 +313,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                             }
                         }
                         0x1E => {
-                            if let Some(pk) = packet3
+                            if let Some(_pk) = packet3
                                 .as_any()
                                 .downcast_ref::<qexed_net::packet::packet_pool::EntityEvent>()
                             {
@@ -320,7 +327,6 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                         }
                     
                     }
-                    _ => {}
                 }
             }
         });

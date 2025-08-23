@@ -16,8 +16,8 @@ rand.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 tklog.workspace = true
-uuid = "1.17.0"
-futures-util = "0.3.31"
 tokio = { workspace = true, features = ["full","rt-multi-thread"] }
 rust_event.workspace = true
-mongodb = "3.2.4"
+mongodb.workspace = true
+uuid.workspace = true
+futures-util.workspace = true
