@@ -403,6 +403,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                                 let _ = packet_socket.send(&p_q).await;
                                             }
                                         }
+                                        is_login_finish = true
                                     }
                                 }
                             }
@@ -413,6 +414,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                     }
                 } else {
                     // 暂时还没处理完成登录,完全登录后再实现这里的逻辑,这一行开始
+                    // 为了巫妖王,为了艾泽拉斯！！！
                 }
             }
         });
