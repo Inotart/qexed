@@ -2,17 +2,18 @@ use anyhow::{Ok, Result};
 use mongodb::Collection;
 use qexed_core::utils::alloci32::ALLOC;
 use qexed_net::net_types::var_int::VarInt;
+use qexed_net::packet::packet_pool::PlayerPosition;
 use qexed_net::{
     mojang_online::query_mojang_for_usernames, net_types::packet::PacketState,
     packet::packet_pool::DisconnectLogin, player::Player, read_packet,
 };
 use rand::prelude::*;
 use serde_json::json;
-use uuid::Uuid;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::{self, net::TcpListener};
+use uuid::Uuid;
 pub async fn main() -> Result<(), anyhow::Error> {
     log::info!(
         "启动我的世界服务器版本:{}",
@@ -22,7 +23,7 @@ pub async fn main() -> Result<(), anyhow::Error> {
     let tcplistener = qexed_net::new_tcp_server(&config.network.ip, config.network.port).await?;
     start_task(tcplistener).await?;
     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-    
+
     Ok(())
 }
 
@@ -30,18 +31,30 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
     let mut players: i64 = 0;
     let config = Arc::new(Mutex::new(qexed_config::get_global_config()?));
     // 维护实体id信息
-    let alloc_entity_id: Arc<Mutex<qexed_core::utils::alloci32::Alloci32>>= Arc::new(Mutex::new(qexed_core::utils::alloci32::Alloci32::new()));
+    let alloc_entity_id: Arc<Mutex<qexed_core::utils::alloci32::Alloci32>> =
+        Arc::new(Mutex::new(qexed_core::utils::alloci32::Alloci32::new()));
     let player_map: HashMap<Uuid, qexed_core::biology::player::Player> = HashMap::new();
     // 连接monggodb
-        // 创建连接池
-    let pool = Arc::new(Mutex::new(qexed_core::utils::mongo_dbconnection_pool::MongoDBConnectionPool::new().await?));
-    
+    // 创建连接池
+    let pool = Arc::new(Mutex::new(
+        qexed_core::utils::mongo_dbconnection_pool::MongoDBConnectionPool::new().await?,
+    ));
+    qexed_core::registry::get_registry_data_packets();
+    if let Some(p2) = qexed_core::update_tags::get_update_tags_packet()
+        .as_any()
+        .downcast_ref::<qexed_net::packet::packet_pool::UpdateTags>()
+    {
+        for p3 in &p2.tags {
+            log::info!("{:?}", p3);
+        }
+    }
+
     // 打印连接池状态（MongoDB Rust driver does not expose pool status directly）
     log::info!("创建mongodb连接成功");
     pool.lock().await.health_check().await?;
-    
+
     // 获取默认数据库
-    
+
     while let std::result::Result::Ok((socket, socketaddr)) = tcplistener.accept().await {
         let alloc_entity_id = Arc::clone(&alloc_entity_id);
         let config = Arc::clone(&config);
@@ -82,109 +95,116 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                 }
                 let packet3 = packet2.unwrap();
                 log::info!("数据包:{:?}", packet3);
-
-                match client_status {
-                    PacketState::Handshake => match packet3.id() {
-                        0x00 => {
-                            if let Some(handshake) = packet3
-                                .as_any()
-                                .downcast_ref::<qexed_net::packet::packet_pool::Handshake>(
-                            ) {
-                                match handshake.next_state.0 {
-                                    1 => client_status = PacketState::Status,
-                                    2 => client_status = PacketState::Login,
-                                    3 => {
-                                        // qexed
+                let mut is_login_finish = false;
+                let mut teleport_id_i32: i32=0;
+                let mut first_tp:bool = false;
+                let mut first_move:bool = false;
+                if !is_login_finish {
+                    match client_status {
+                        PacketState::Handshake => match packet3.id() {
+                            0x00 => {
+                                if let Some(handshake) = packet3
+                                    .as_any()
+                                    .downcast_ref::<qexed_net::packet::packet_pool::Handshake>(
+                                ) {
+                                    match handshake.next_state.0 {
+                                        1 => client_status = PacketState::Status,
+                                        2 => client_status = PacketState::Login,
+                                        3 => {
+                                            // qexed
+                                        }
+                                        _ => {}
                                     }
-                                    _ => {}
                                 }
                             }
-                        }
-                        _ => {}
-                    },
-                    PacketState::Status => match packet3.id() {
-                        0x00 => {
-                            if let Some(_) = packet3
-                                .as_any()
-                                .downcast_ref::<qexed_net::packet::packet_pool::StatusRequest>(
-                            ) {
-                                let mut pk = qexed_net::packet::packet_pool::StatusResponse::new();
-                                let json_response = build_server_status(players);
-                                if json_response.is_err() {
-                                    log::error!(
-                                        "客户端 {}:{} 数据包解析错误",
-                                        socketaddr.ip(),
-                                        socketaddr.port()
-                                    );
-                                    return;
-                                }
-                                pk.json_response = json_response.unwrap();
-                                let _ = packet_socket.send(&pk).await;
-                            }
-                        }
-                        0x01 => {
-                            if let Some(pingpk) = packet3
-                                .as_any()
-                                .downcast_ref::<qexed_net::packet::packet_pool::PingRequest>(
-                            ) {
-                                let mut pk = qexed_net::packet::packet_pool::PingResponse::new();
-                                pk.payload = pingpk.payload;
-                                let _ = packet_socket.send(&pk).await;
-                            }
-                        }
-
-                        _ => {}
-                    },
-                    PacketState::Login => match packet3.id() {
-                        0x00 => {
-                            if let Some(loginpk) = packet3
-                                .as_any()
-                                .downcast_ref::<qexed_net::packet::packet_pool::LoginStart>(
-                            ) {
-                                let config = qexed_config::get_global_config().unwrap();
-                                if !config.game.online_mode {
+                            _ => {}
+                        },
+                        PacketState::Status => match packet3.id() {
+                            0x00 => {
+                                if let Some(_) = packet3
+                                    .as_any()
+                                    .downcast_ref::<qexed_net::packet::packet_pool::StatusRequest>(
+                                ) {
                                     let mut pk =
-                                        qexed_net::packet::packet_pool::LoginSuccess::new();
-                                    pk.name = loginpk.player_name.clone();
-                                    pk.uuids = loginpk.player_uuid.clone();
-                                    let mut player = Player::new();
-                                    player.name = loginpk.player_name.clone();
-                                    player.uuids = loginpk.player_uuid.clone();
-                                    packet_socket.player = Some(player);
-                                    player_conn.username = loginpk.player_name.clone();
-                                    player_conn.uuid = loginpk.player_uuid.clone();
+                                        qexed_net::packet::packet_pool::StatusResponse::new();
+                                    let json_response = build_server_status(players);
+                                    if json_response.is_err() {
+                                        log::error!(
+                                            "客户端 {}:{} 数据包解析错误",
+                                            socketaddr.ip(),
+                                            socketaddr.port()
+                                        );
+                                        return;
+                                    }
+                                    pk.json_response = json_response.unwrap();
                                     let _ = packet_socket.send(&pk).await;
-                                    continue;
-                                };
-                                let is_check_true =
-                                    is_online(&loginpk.player_name, loginpk.player_uuid).await;
-                                if is_check_true.is_err() {
-                                    let mut pk = DisconnectLogin::new();
-                                    pk.reason = json!({"text": "请使用正版《我的世界》账户登录","color": "red","bold": true});
-                                    let _ = packet_socket.send(&pk).await;
-                                    log::info!("断开连接");
-                                    let _ = packet_socket.shutdown().await;
-                                    return;
-                                }
-                                if is_check_true.unwrap() == false {
-                                    let mut pk = DisconnectLogin::new();
-                                    pk.reason = json!({"text": "请使用正版《我的世界》账户登录","color": "red","bold": true});
-                                    let _ = packet_socket.send(&pk).await;
-                                    log::info!("断开连接");
-                                    let _ = packet_socket.shutdown().await;
-                                    return;
                                 }
                             }
-                        }
-                        // 0x02
-                        0x03 => {
-                            client_status = PacketState::Configuration;
-                        }
-                        _ => {}
-                    },
-                    PacketState::Configuration => match packet3.id() {
-                        0x00 => {
-                            if let Some(pk) = packet3
+                            0x01 => {
+                                if let Some(pingpk) = packet3
+                                    .as_any()
+                                    .downcast_ref::<qexed_net::packet::packet_pool::PingRequest>(
+                                ) {
+                                    let mut pk =
+                                        qexed_net::packet::packet_pool::PingResponse::new();
+                                    pk.payload = pingpk.payload;
+                                    let _ = packet_socket.send(&pk).await;
+                                }
+                            }
+
+                            _ => {}
+                        },
+                        PacketState::Login => match packet3.id() {
+                            0x00 => {
+                                if let Some(loginpk) = packet3
+                                    .as_any()
+                                    .downcast_ref::<qexed_net::packet::packet_pool::LoginStart>(
+                                ) {
+                                    let config = qexed_config::get_global_config().unwrap();
+                                    if !config.game.online_mode {
+                                        let mut pk =
+                                            qexed_net::packet::packet_pool::LoginSuccess::new();
+                                        pk.name = loginpk.player_name.clone();
+                                        pk.uuids = loginpk.player_uuid.clone();
+                                        let mut player = Player::new();
+                                        player.name = loginpk.player_name.clone();
+                                        player.uuids = loginpk.player_uuid.clone();
+                                        packet_socket.player = Some(player);
+                                        player_conn.username = loginpk.player_name.clone();
+                                        player_conn.uuid = loginpk.player_uuid.clone();
+                                        let _ = packet_socket.send(&pk).await;
+                                        continue;
+                                    };
+                                    let is_check_true =
+                                        is_online(&loginpk.player_name, loginpk.player_uuid).await;
+                                    if is_check_true.is_err() {
+                                        let mut pk = DisconnectLogin::new();
+                                        pk.reason = json!({"text": "请使用正版《我的世界》账户登录","color": "red","bold": true});
+                                        let _ = packet_socket.send(&pk).await;
+                                        log::info!("断开连接");
+                                        let _ = packet_socket.shutdown().await;
+                                        return;
+                                    }
+                                    if is_check_true.unwrap() == false {
+                                        let mut pk = DisconnectLogin::new();
+                                        pk.reason = json!({"text": "请使用正版《我的世界》账户登录","color": "red","bold": true});
+                                        let _ = packet_socket.send(&pk).await;
+                                        log::info!("断开连接");
+                                        let _ = packet_socket.shutdown().await;
+                                        return;
+                                    }
+                                }
+                            }
+                            // 0x02
+                            0x03 => {
+                                client_status = PacketState::Configuration;
+                            }
+                            _ => {}
+                        },
+                        PacketState::Configuration => match packet3.id() {
+                            
+                            0x00 => {
+                                if let Some(pk) = packet3
                                 .as_any()
                                 .downcast_ref::<qexed_net::packet::packet_pool::ClientInformationCtoS>(
                             ) {
@@ -204,29 +224,29 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                     let _ = packet_socket.send(&select_known_packs).await;
                                 }
                             }
-                        }
-                        0x02 => {
-                            if let Some(pk) = packet3
-                                .as_any()
-                                .downcast_ref::<qexed_net::packet::packet_pool::PluginMessage>(
-                            ) {
-                                use rust_event::GLOBAL_EVENT_BUS;
-                                let bus = GLOBAL_EVENT_BUS.clone();
-                                drop(packet_socket);
-                                bus.emit::<qexed_core::event::plugin_message::RawPluginMessageEvent>((Arc::clone(&packet_socket_raw),pk.channel.clone(),pk.data.clone())).await;
                             }
-                        }
-                        0x03 => {
-                            if let Some(_pk) = packet3
+                            0x02 => {
+                                if let Some(pk) = packet3
+                                    .as_any()
+                                    .downcast_ref::<qexed_net::packet::packet_pool::PluginMessage>(
+                                ) {
+                                    use rust_event::GLOBAL_EVENT_BUS;
+                                    let bus = GLOBAL_EVENT_BUS.clone();
+                                    drop(packet_socket);
+                                    bus.emit::<qexed_core::event::plugin_message::RawPluginMessageEvent>((Arc::clone(&packet_socket_raw),pk.channel.clone(),pk.data.clone())).await;
+                                }
+                            }
+                            0x03 => {
+                                if let Some(_pk) = packet3
                                 .as_any()
                                 .downcast_ref::<qexed_net::packet::packet_pool::FinishConfigurationCtoS>(
                             ) {
                                 // 切换到play状态
                                 client_status = PacketState::Play;
                             }
-                        }
-                        0x07 => {
-                            if let Some(_pk) = packet3
+                            }
+                            0x07 => {
+                                if let Some(_pk) = packet3
                                 .as_any()
                                 .downcast_ref::<qexed_net::packet::packet_pool::SelectKnownPacksCtoS>(
                             ) {
@@ -296,37 +316,64 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                 // let p = mongo_pool.lock().await;
                                 // 保存数据库
                                 player_conn.save(&db).await.unwrap();
+                                // 传送玩家到指定位置
+                                let mut pp = PlayerPosition::new();
+                                teleport_id_i32 = (rand::random::<u32>() & 0x3FFF_FFFF) as i32;
+                                pp.teleport_id = qexed_net::net_types::var_int::VarInt(teleport_id_i32);
+                                let _ = packet_socket.send(&pp).await;
+
                             }
-                        }
-                        _ => {
-                            log::info!("未知的数据包与内容:{:?}", packets.clone());
-                        }
-                    },
-                    PacketState::Play => match packet3.id() {
-                        0x0c => {
-                            if let Some(_pk) = packet3
+                            }
+                            _ => {
+                                log::info!("未知的数据包与内容:{:?}", packets.clone());
+                            }
+                        },
+                        PacketState::Play => match packet3.id() {
+                            0x00 => {
+                                // 玩家在接受服务端后的tp逻辑,我们这里显然是登录逻辑的继续。
+                                
+                                if let Some(pk) = packet3
                                 .as_any()
-                                .downcast_ref::<qexed_net::packet::packet_pool::ChunkBatchStart>()
-                            {
-                                // 处理 ChunkBatchStart 数据包
-                                // log::info!("ChunkBatchStart 数据包: {:?}", pk);
+                                .downcast_ref::<qexed_net::packet::packet_pool::AcceptTeleportation>(
+                                ) {
+                                    if !first_tp{
+                                        first_tp = true
+
+                                    }
+                                    // 暂时没想好如果失败的逻辑
+                                    // if pk.teleport_id == qexed_net::net_types::var_int::VarInt(teleport_id_i32){
+                                    //     
+                                    // }
+                                }
+                                
                             }
-                        }
-                        0x1E => {
-                            if let Some(_pk) = packet3
+                            0x0c => {
+                                if let Some(_pk) = packet3
                                 .as_any()
-                                .downcast_ref::<qexed_net::packet::packet_pool::EntityEvent>()
-                            {
-                                // 处理 EntityEvent 数据包
-                                // log::info!("EntityEvent 数据包: {:?}", pk);
-                                // 这里可以处理实体事件
+                                .downcast_ref::<qexed_net::packet::packet_pool::ChunkBatchStart>(
+                                ) {
+                                    // 处理 ChunkBatchStart 数据包
+                                    // log::info!("ChunkBatchStart 数据包: {:?}", pk);
+                                }
                             }
-                        }
-                        _ => {
-                            log::info!("未知的数据包与内容:{:?}", packets.clone());
-                        }
-                    
+                            0x1E => {
+                                if let Some(_pk) = packet3
+                                    .as_any()
+                                    .downcast_ref::<qexed_net::packet::packet_pool::MovePlayerPosRot>(
+                                ) {
+                                    // 处理 MovePlayerPosRot 数据包
+                                    if !first_move{
+                                        first_move=true
+                                    }
+                                }
+                            }
+                            _ => {
+                                log::info!("未知的数据包与内容:{:?}", packets.clone());
+                            }
+                        },
                     }
+                } else {
+                    // 暂时还没处理完成登录,完全登录后再实现这里的逻辑,这一行开始
                 }
             }
         });

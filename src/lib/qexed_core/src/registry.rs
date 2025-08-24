@@ -646,7 +646,15 @@ pub fn get_registry_data_packets() -> Vec<Box<dyn qexed_net::net_types::packet::
     let mut r = Vec::new();
     for v in rv {
         let c = read_packet(v);
-        r.push(c);
+        // 观测一下数据包信息,我们写成json
+        if let Some(p2) = c.as_any().downcast_ref::<qexed_net::packet::packet_pool::RegistryData>() {
+            // println!("{:?}",p2);
+            for p3 in &p2.entries {
+                log::info!("{:?}",p3);
+                
+            }
+            r.push(c);
+        }
     }
     
     return r;

@@ -18,7 +18,9 @@ pub struct Player {
     pub last_login: DateTime,
     // 暂时没有物品
     // pub inventory: Vec<Item>,
-    pub position: Position,
+    pub position: Position,// 位置
+    pub yaw:f32,// 偏航角
+    pub pitch:f32, // 俯仰角
     pub health: f32,
     pub is_online: bool,
 }
@@ -33,6 +35,8 @@ impl Player {
             last_login: DateTime::now(),
             position: Position::new(),
             health: 20.0, // 默认生命值
+            yaw:0.0,
+            pitch:0.0,
             is_online: false, // 默认不在线
             // inventory: Vec::new(), // 暂时没有物品
         }
@@ -47,8 +51,11 @@ impl Player {
             level: 0,
             last_login: DateTime::now(),
             position: Position::new(),
+            yaw:0.0,
+            pitch:0.0,            
             health: 20.0,
             is_online: false,
+            
             // inventory: Vec::new(),
         }
     }

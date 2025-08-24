@@ -106,6 +106,30 @@ impl Subdata for i64 {
         *self = r.i64();
     }
 }
+impl Subdata for f32{
+    fn new() -> Self {
+        0.0
+    }
+    fn serialize(&self, w: &mut PacketWriter) {
+        w.f32(*self);
+    }
+
+    fn deserialize(&mut self, r: &mut PacketReader) {
+        *self = r.f32();
+    }
+}
+impl Subdata for f64{
+    fn new() -> Self {
+        0.0
+    }
+    fn serialize(&self, w: &mut PacketWriter) {
+        w.f64(*self);
+    }
+
+    fn deserialize(&mut self, r: &mut PacketReader) {
+        *self = r.f64();
+    }
+}
 impl Subdata for bool {
     fn new() -> Self {
         false

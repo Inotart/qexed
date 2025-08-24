@@ -41,6 +41,12 @@ impl<'a> PacketWriter<'a> {
     pub fn i64(&mut self, value: i64) {
         self.buf.put_i64(value);
     }
+    pub fn f32(&mut self, value: f32){
+        self.buf.put_f32(value);
+    }
+    pub fn f64(&mut self, value: f64){
+        self.buf.put_f64(value);
+    }
     pub fn string(&mut self, value: &str) {
         self.varint(&VarInt(value.len() as i32));
         self.buf.put_slice(value.as_bytes());

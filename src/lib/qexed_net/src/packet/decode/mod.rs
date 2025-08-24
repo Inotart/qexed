@@ -37,6 +37,12 @@ impl<'a> PacketReader<'a> {
     pub fn i64(&mut self) -> i64 {
         self.buf.get_i64()
     }
+    pub fn f32(&mut self) -> f32 {
+        self.buf.get_f32()
+    }
+    pub fn f64(&mut self) -> f64 {
+        self.buf.get_f64()
+    }
     pub fn string(&mut self) -> String {
         let len = self.varint().0 as usize;
         let bytes = self.buf.copy_to_bytes(len);
