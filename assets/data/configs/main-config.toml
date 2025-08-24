@@ -48,6 +48,17 @@ plugin_sync = true
 plugin_config_sync = false
 # 是否启用正版验证(仅单服务端模式可用)
 online-mode=true
+# 默认游戏模式(影响首次进服时的玩家模式)
+# 0:生存模式
+# 1:创造模式
+# 2:冒险模式
+# 3:旁观者模式
+# TODO: 暂未实现,需要实现
+default_game_mode=0
+# 是否强制每次玩家进服时更改为默认游戏模式
+# (可通过权限 qexed.permission.gamemode.mustset 来控制)
+# TODO: 暂未实现,需要实现
+must_set_game_mode_join = false
 # 世界相关设置
 [game.world]
 # 地图名

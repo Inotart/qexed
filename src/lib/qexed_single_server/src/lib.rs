@@ -364,6 +364,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                     // 处理 MovePlayerPosRot 数据包
                                     if !first_move{
                                         first_move=true
+                                        // 构建 GameEventPacket 数据包
                                     }
                                 }
                             }
