@@ -1,8 +1,10 @@
 use anyhow::{Ok, Result};
+use log::info;
 use mongodb::Collection;
 use qexed_core::utils::alloci32::ALLOC;
+use qexed_net::net_types::packet::Packet;
 use qexed_net::net_types::var_int::VarInt;
-use qexed_net::packet::packet_pool::PlayerPosition;
+use qexed_net::packet::packet_pool::{GameEvent, LevelChunkWithLight, PlayerPosition};
 use qexed_net::{
     mojang_online::query_mojang_for_usernames, net_types::packet::PacketState,
     packet::packet_pool::DisconnectLogin, player::Player, read_packet,
@@ -45,7 +47,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
         .downcast_ref::<qexed_net::packet::packet_pool::UpdateTags>()
     {
         for p3 in &p2.tags {
-            log::info!("{:?}", p3);
+            // log::info!("{:?}", p3);
         }
     }
 
@@ -96,9 +98,9 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                 let packet3 = packet2.unwrap();
                 log::info!("数据包:{:?}", packet3);
                 let mut is_login_finish = false;
-                let mut teleport_id_i32: i32=0;
-                let mut first_tp:bool = false;
-                let mut first_move:bool = false;
+                let mut teleport_id_i32: i32 = 0;
+                let mut first_tp: bool = false;
+                let mut first_move: bool = false;
                 if !is_login_finish {
                     match client_status {
                         PacketState::Handshake => match packet3.id() {
@@ -202,7 +204,6 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                             _ => {}
                         },
                         PacketState::Configuration => match packet3.id() {
-                            
                             0x00 => {
                                 if let Some(pk) = packet3
                                 .as_any()
@@ -310,7 +311,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                 login_play.portal_cooldown = qexed_net::net_types::var_int::VarInt(0); // 传送门冷却时间
                                 login_play.sea_level = qexed_net::net_types::var_int::VarInt(63); // 海平面高度
                                 login_play.enforces_secure_chat = false; // 强制安全聊天
-                                // let _ = packet_socket.send(&login_play).await;
+                                let _ = packet_socket.send(&login_play).await;
                                 // Player::load_by_uuid(
                                 // let collection: Collection<Player> = db.collection("players");
                                 // let p = mongo_pool.lock().await;
@@ -318,7 +319,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                 player_conn.save(&db).await.unwrap();
                                 // 传送玩家到指定位置
                                 let mut pp = PlayerPosition::new();
-                                teleport_id_i32 = (rand::random::<u32>() & 0x3FFF_FFFF) as i32;
+                                teleport_id_i32 = 1;
                                 pp.teleport_id = qexed_net::net_types::var_int::VarInt(teleport_id_i32);
                                 let _ = packet_socket.send(&pp).await;
 
@@ -331,7 +332,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                         PacketState::Play => match packet3.id() {
                             0x00 => {
                                 // 玩家在接受服务端后的tp逻辑,我们这里显然是登录逻辑的继续。
-                                
+
                                 if let Some(pk) = packet3
                                 .as_any()
                                 .downcast_ref::<qexed_net::packet::packet_pool::AcceptTeleportation>(
@@ -345,7 +346,6 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                     //     
                                     // }
                                 }
-                                
                             }
                             0x0c => {
                                 if let Some(_pk) = packet3
@@ -363,8 +363,46 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                 ) {
                                     // 处理 MovePlayerPosRot 数据包
                                     if !first_move{
-                                        first_move=true
+                                        first_move=true;
                                         // 构建 GameEventPacket 数据包
+                                        let mut ge = GameEvent::new();
+                                        ge.event = 13;
+                                        let _ = packet_socket.send(&ge).await;
+                                        // 构建 SetChunkCacheCenter 数据包
+                                        let sccc = qexed_net::packet::packet_pool::SetChunkCacheCenter::new();
+                                        let _ = packet_socket.send(&sccc).await;
+                                        // 发送玩家附近区块
+                                        let radius= config.lock().await.game.chunk_render_distance as i32;
+                                        for x in -radius..=radius {
+                                            for z in -radius..=radius {
+                                                // 创建空区块
+                                                let p_q = LevelChunkWithLight {
+                                                    chunk_x: x,
+                                                    chunk_z: z,
+                                                    data: qexed_net::net_types::chunk::Chunk {
+                                                        // 高度图 - 使用修复后的高度图
+                                                        heightmaps: create_heightmaps(),
+                                                        // 空的区块数据 - 使用修复后的编码函数
+                                                        data: encode_empty_chunk_data_1_21(),
+                                                        // 无方块实体
+                                                        block_entities: vec![],
+                                                    },
+                                                    light: qexed_net::net_types::light::Light {
+                                                        // 空的光照掩码
+                                                        sky_light_mask: qexed_net::net_types::bitset::Bitset(vec![]),
+                                                        block_light_mask: qexed_net::net_types::bitset::Bitset(vec![]),
+                                                        empty_sky_light_mask: qexed_net::net_types::bitset::Bitset(vec![]),
+                                                        empty_block_light_mask: qexed_net::net_types::bitset::Bitset(vec![]),
+                                                        // 空的照明数据
+                                                        sky_light_arrays: vec![],
+                                                        block_light_arrays: vec![],
+                                                    },
+                                                };
+                                            
+                                                // 发送数据包
+                                                let _ = packet_socket.send(&p_q).await;
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -433,4 +471,84 @@ fn build_server_status(players: i64) -> Result<serde_json::Value, anyhow::Error>
         "enforcesSecureChat": false
     });
     Ok(v)
+}
+// 为 Minecraft 1.21.8 编码空区块数据
+fn encode_empty_chunk_data_1_21() -> Vec<u8> {
+    let mut data = Vec::new();
+
+    // 1.21.8 使用 24 个区块段落 (从 y=-64 到 y=319)
+    for _ in 0..24 {
+        // 段落非空气方块数量为 0
+        data.extend_from_slice(&0i16.to_be_bytes());
+
+        // 方块状态
+        // 使用调色板模式，只有一个空气方块
+        let bits_per_block = 1; // 只需要 1 位，因为只有一种方块
+        data.push(bits_per_block as u8);
+
+        // 调色板长度 - 使用 VarInt 编码
+        data.extend(encode_var_int(1));
+
+        // 空气方块的 ID
+        data.extend(encode_var_int(0));
+
+        // 计算需要多少个 long 来存储 4096 个方块
+        let blocks_per_long = 64 / bits_per_block;
+        let num_longs = (4096 + blocks_per_long - 1) / blocks_per_long;
+
+        // 所有方块都是空气 (调色板索引 0)
+        for _ in 0..num_longs {
+            data.extend_from_slice(&0i64.to_be_bytes());
+        }
+
+        // 生物群系数据
+        // 使用调色板模式，只有一个生物群系
+        let bits_per_biome = 1; // 只需要 1 位，因为只有一种生物群系
+        data.push(bits_per_biome as u8);
+
+        // 生物群系调色板长度 - 使用 VarInt 编码
+        data.extend(encode_var_int(1));
+
+        // 平原生物群系的 ID
+        data.extend(encode_var_int(1));
+
+        // 计算需要多少个 long 来存储 64 个生物群系 (4x4x4)
+        let biomes_per_long = 64 / bits_per_biome;
+        let num_biome_longs = (64 + biomes_per_long - 1) / biomes_per_long;
+
+        // 所有生物群系都是平原 (调色板索引 0)
+        for _ in 0..num_biome_longs {
+            data.extend_from_slice(&0i64.to_be_bytes());
+        }
+    }
+    data
+}
+
+fn encode_var_int(value: i32) -> Vec<u8> {
+    let mut value = value as u32;
+    let mut buf = Vec::new();
+    loop {
+        if value & !0x7F == 0 {
+            buf.push(value as u8);
+            break;
+        } else {
+            buf.push((value as u8 & 0x7F) | 0x80);
+            value >>= 7;
+        }
+    }
+    buf
+}
+fn create_heightmaps() -> Vec<qexed_net::net_types::heightmap::Heightmaps> {
+    vec![
+        qexed_net::net_types::heightmap::Heightmaps {
+            type_id: VarInt(0), // MOTION_BLOCKING
+            // 高度图应该包含 256 个值（16x16），每个值是一个 VarLong
+            // 对于空区块，所有高度都是世界底部（-64）
+            data: vec![0; 36], // 这个大小可能需要调整
+        },
+        qexed_net::net_types::heightmap::Heightmaps {
+            type_id: VarInt(1), // WORLD_SURFACE
+            data: vec![0; 36],  // 这个大小可能需要调整
+        },
+    ]
 }

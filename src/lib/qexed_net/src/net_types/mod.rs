@@ -2,3 +2,8 @@ pub mod var_int;
 pub mod packet;
 pub mod subdata;
 pub mod position;
+pub mod chunk;
+pub mod heightmap;
+pub mod block_entities;
+pub mod light;
+pub mod bitset;

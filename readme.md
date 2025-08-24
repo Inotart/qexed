@@ -8,7 +8,7 @@
 > 聊天群(QQ):524167891
 
 该项目基于Redis与MongoDB制作,因此使用前需部署MongoDB和Redis服务器
-
+![alt text](doc/readme_join_server.png)
 - Redis: 用于缓存区块以及玩家信息
 - MongoDB: 存储玩家数据
 # 计划
@@ -40,6 +40,7 @@
 - [ ] play
     - [ ] MongoDB 支持
     - [ ] Login 
+    - [ ] 进服
     - [ ] event_status 
     - [ ] 权限组
     - [ ] 地图加载与管理

@@ -650,7 +650,7 @@ pub fn get_registry_data_packets() -> Vec<Box<dyn qexed_net::net_types::packet::
         if let Some(p2) = c.as_any().downcast_ref::<qexed_net::packet::packet_pool::RegistryData>() {
             // println!("{:?}",p2);
             for p3 in &p2.entries {
-                log::info!("{:?}",p3);
+                // log::info!("{:?}",p3);
                 
             }
             r.push(c);
