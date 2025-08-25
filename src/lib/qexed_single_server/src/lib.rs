@@ -37,7 +37,6 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
     // 维护实体id信息
     let alloc_entity_id: Arc<Mutex<qexed_core::utils::alloci32::Alloci32>> =
         Arc::new(Mutex::new(qexed_core::utils::alloci32::Alloci32::new()));
-    let player_map: HashMap<Uuid, qexed_core::biology::player::Player> = HashMap::new();
     // 连接monggodb
     // 创建连接池
     let pool = Arc::new(Mutex::new(
@@ -58,12 +57,13 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
     pool.lock().await.health_check().await?;
 
     // 获取默认数据库
-
+    let player_map_raw  = Arc::new(Mutex::new(HashMap::new()));
     while let std::result::Result::Ok((socket, socketaddr)) = tcplistener.accept().await {
+        let player_map = Arc::clone(&player_map_raw);
         let alloc_entity_id = Arc::clone(&alloc_entity_id);
         let config = Arc::clone(&config);
         let pool = Arc::clone(&pool);
-
+        
         tokio::spawn(async move {
             let mongo_pool = pool.lock().await;
             let packet_socket_raw: Arc<Mutex<qexed_net::PacketListener>> = Arc::new(Mutex::new(qexed_net::PacketListener::new(
@@ -71,7 +71,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
             )));
             // log::info!("客户端 {}:{} 创建连接", socketaddr.ip(), socketaddr.port());
             let mut client_status = PacketState::Handshake;
-            let mut player_conn = qexed_core::biology::player::Player::new();
+            let mut player_conn_raw = Arc::new(Mutex::new(qexed_core::biology::player::Player::new()));
             let db = mongo_pool.default_db();
             let now: DateTime<Utc> = Utc::now();
             let mut alive_id: Arc<Mutex<u64>> = Arc::new(Mutex::new(now.timestamp_millis() as u64));
@@ -82,6 +82,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
             loop {
                 let mut packet_socket = packet_socket_raw.lock().await;
                 let raw_packets = packet_socket.read().await;
+                let mut player_conn = player_conn_raw.lock().await;
                 if raw_packets.is_err() {
                     if player_conn.uuid != Uuid::nil() {
                         player_conn.is_online = false;
@@ -89,6 +90,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                     }
                     player_conn.is_online = false;
                     player_conn.save(&db).await.unwrap();
+                    player_map.lock().await.remove(&player_conn.uuid);
                     if is_login_finish{
                         log::info!("玩家 {}[{}] 退出了游戏",player_conn.username,player_conn.uuid);
                     }
@@ -291,7 +293,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                 }
                                 let username = player_conn.username.clone();
                                 let entity_id = entity_result.unwrap();
-                                player_conn = match qexed_core::biology::player::Player::load_or_create(&db, player_conn.uuid).await {
+                                *player_conn = match qexed_core::biology::player::Player::load_or_create(&db, player_conn.uuid).await {
                                     Result::Ok(player) => player,
                                     Err(e) => {
                                         log::error!("加载或创建玩家失败: {:?}", e);
@@ -341,6 +343,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                 let mut pp = PlayerPosition::new();
                                 teleport_id_i32 = 1;
                                 pp.teleport_id = qexed_net::net_types::var_int::VarInt(teleport_id_i32);
+                                player_map.lock().await.insert(player_conn.uuid, Arc::clone(&player_conn_raw));
                                 let _ = packet_socket.send(&pp).await;
 
                             }
@@ -425,6 +428,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                         }
                                         is_login_finish = true;
                                         log::info!("玩家 {}[{}] 加入了游戏",player_conn.username,player_conn.uuid);
+                                        player_conn.conn = Some(Arc::clone(&packet_socket_raw));
                                         tokio::spawn(qexed_core::event::join_server::alive_fn(Arc::clone(&alive_id),Arc::clone(&packet_socket_raw)));
                                         
 

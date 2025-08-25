@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use anyhow::{Context, Result};
 use chrono::Utc;
 use uuid::Uuid;
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Player {
     #[serde(with = "uuid_as_binary")]
     #[serde(rename = "_id")] // 使用 MongoDB 的 _id 字段
@@ -23,6 +23,9 @@ pub struct Player {
     pub pitch:f32, // 俯仰角
     pub health: f32,
     pub is_online: bool,
+    // 其他与玩家无直接关系的属性
+    #[serde(skip)]
+    pub conn:Option<std::sync::Arc<tokio::sync::Mutex<qexed_net::PacketListener>>>,
 }
 
 impl Player {
@@ -39,6 +42,7 @@ impl Player {
             pitch:0.0,
             is_online: false, // 默认不在线
             // inventory: Vec::new(), // 暂时没有物品
+            conn:None,
         }
     }
 
@@ -55,7 +59,7 @@ impl Player {
             pitch:0.0,            
             health: 20.0,
             is_online: false,
-            
+            conn:None,
             // inventory: Vec::new(),
         }
     }
