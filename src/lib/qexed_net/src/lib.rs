@@ -27,11 +27,11 @@ pub async fn new_tcp_server(ip:&str,port:u16)->Result<TcpListener>{
     Ok(conn)
 }
 // 压缩阈值：当数据包长度超过此值时启用压缩
-const COMPRESSION_THRESHOLD: usize = 256;
 pub struct PacketListener {
     pub socket: TcpStream,
     pub socketaddr: SocketAddr,
     pub player:Option<player::Player>,
+    compression_threshold:usize,
     buffer: BytesMut,
     compression_enabled: bool, // 是否启用压缩
 }
@@ -43,13 +43,15 @@ impl PacketListener {
             socketaddr,
             buffer: BytesMut::with_capacity(4096),
             compression_enabled: false, // 默认不启用压缩
+            compression_threshold:0,
             player: None,
         }
     }
 
     // 启用或禁用压缩
-    pub fn set_compression(&mut self, enabled: bool) {
+    pub fn set_compression(&mut self, enabled: bool,compression_threshold:usize) {
         self.compression_enabled = enabled;
+        self.compression_threshold =compression_threshold;
     }
 
     pub async fn send<T: Packet>(&mut self, packet: &T) -> Result<()> {
@@ -79,7 +81,7 @@ impl PacketListener {
     async fn send_compressed(&mut self, data: bytes::Bytes) -> Result<()> {
         let mut buf = BytesMut::new();
         
-        if data.len() >= COMPRESSION_THRESHOLD {
+        if data.len() >= self.compression_threshold {
             // 压缩数据
             let mut encoder = ZlibEncoder::new(&data[..], Compression::default());
             let mut compressed = Vec::new();

@@ -4,7 +4,7 @@ use mongodb::Collection;
 use qexed_core::utils::alloci32::ALLOC;
 use qexed_net::net_types::packet::Packet;
 use qexed_net::net_types::var_int::VarInt;
-use qexed_net::packet::packet_pool::{GameEvent, KeepAliveServerPlay, LevelChunkWithLight, PlayerPosition};
+use qexed_net::packet::packet_pool::{GameEvent, KeepAliveServerPlay, LevelChunkWithLight, LoginCompression, PlayerPosition};
 use qexed_net::{
     mojang_online::query_mojang_for_usernames, net_types::packet::PacketState,
     packet::packet_pool::DisconnectLogin, player::Player, read_packet,
@@ -170,6 +170,16 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                 ) {
                                     let config = qexed_config::get_global_config().unwrap();
                                     if !config.game.online_mode {
+                                        // 压缩设置数据包
+                                        if config.game.network_compression_threshold>=0{
+                                            let mut pk = LoginCompression::new();
+                                            pk.threshold = qexed_net::net_types::var_int::VarInt(config.game.network_compression_threshold);
+                                            let _ = packet_socket.send(&pk).await;
+                                            // 配置压缩
+                                            packet_socket.set_compression(true,config.game.network_compression_threshold.try_into().unwrap());
+                                        }
+
+                                        // 登录成功数据包
                                         let mut pk =
                                             qexed_net::packet::packet_pool::LoginSuccess::new();
                                         pk.name = loginpk.player_name.clone();
