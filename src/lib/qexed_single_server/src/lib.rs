@@ -75,6 +75,10 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
             let db = mongo_pool.default_db();
             let now: DateTime<Utc> = Utc::now();
             let mut alive_id: Arc<Mutex<u64>> = Arc::new(Mutex::new(now.timestamp_millis() as u64));
+            let mut is_login_finish = false;
+            let mut teleport_id_i32: i32 = 0;
+            let mut first_tp: bool = false;
+            let mut first_move: bool = false;
             loop {
                 let mut packet_socket = packet_socket_raw.lock().await;
                 let raw_packets = packet_socket.read().await;
@@ -101,10 +105,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                 }
                 let packet3 = packet2.unwrap();
                 //log::info!("数据包:{:?}", packet3);
-                let mut is_login_finish = false;
-                let mut teleport_id_i32: i32 = 0;
-                let mut first_tp: bool = false;
-                let mut first_move: bool = false;
+
                 
                 if !is_login_finish {
                     match client_status {
@@ -408,8 +409,9 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                                 let _ = packet_socket.send(&p_q).await;
                                             }
                                         }
-                                        tokio::spawn(alive_fn(Arc::clone(&alive_id),Arc::clone(&packet_socket_raw)));
                                         is_login_finish = true;
+                                        tokio::spawn(alive_fn(Arc::clone(&alive_id),Arc::clone(&packet_socket_raw)));
+                                        
 
                                     }
                                 }
@@ -450,18 +452,27 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                     // 处理 KeepAlive 数据包
                                 }
                             }
+                            0x1D => {
+                                if let Some(pk) = packet3
+                                    .as_any()
+                                    .downcast_ref::<qexed_net::packet::packet_pool::MovePlayerPos>(
+                                ) {
+                                    // 处理 MovePlayerPos 数据包
+                                    log::info!("移动数据包(不含视角):{:?}",pk);
+                                }
+                            }
                             0x1E => {
-                                if let Some(_pk) = packet3
+                                if let Some(pk) = packet3
                                     .as_any()
                                     .downcast_ref::<qexed_net::packet::packet_pool::MovePlayerPosRot>(
                                 ) {
                                     // 处理 MovePlayerPosRot 数据包
-
+                                    log::info!("移动数据包:{:?}",pk);
                                 }
                             }
 
                             _ => {
-                                log::info!("未知的数据包与内容:{:?}", packets.clone());
+                                log::info!("未知的数据包与内容2:{:?}", packets.clone());
                             }
                         },
                         _ =>{}
