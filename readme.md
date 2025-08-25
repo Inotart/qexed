@@ -20,10 +20,10 @@
         - [ ] 代理支持
     - [x] StatusRequest
         - [x] Ping
-        - [ ] 自定义 Ping 头像
+        - [x] 自定义 Ping 头像
     - [ ] Login
         - [ ] Mojang 正版验证
-        - [ ] 解压缩
+        - [x] 解压缩
         - [ ] 加解密
         - [x] 离线模式登录
         - [x] 跳转 Configuration 阶段
@@ -34,13 +34,13 @@
         - [ ] 自定义材质包支持
         - [ ] 自定义资源包支持
         - [ ] Forge 模组资源包支持
-        - [ ] RegistryData 数据包支持
-        - [ ] 注册表
+        - [x] RegistryData 数据包支持
+        - [x] 注册表
         - [ ] forge 支持
         - [ ] geyser 支持
-    - [ ] play
-        - [ ] MongoDB 支持
-        - [ ] Login 
+    - [x] play
+        - [x] MongoDB 支持
+        - [x] Login 
         - [x] 进服
 
 - 游戏阶段
@@ -53,6 +53,7 @@
     - [ ] 地形生成器
     - [ ] 全局HashMap(不是地图)
     - [ ] event_status 
+    - [ ] 聊天收发
 # 插件开发
 暂时没写到这里(只要兼容wasm就都可以使用)
 兼容性计划如下:
@@ -69,7 +70,14 @@
 > 再者Apollo 开发者相对来说太少了,并且我们还没办法测试是否可用。
 > 故不对 Apollo 做适配。
 > 注: 基岩版插件丢java版咋可能能运行啊。原理都不一样。没法搞
+# 自定义ping头像
+参考格式，64*64大小的。
+自己网上随便自己生成一个就行。这里我随便帖个链接自己去转换
+[https://www.lddgo.net/convert/imagebasesix](https://www.lddgo.net/convert/imagebasesix)
 
+开头是这样的就对了
+
+> data:image/png;base64,
 
 # Forge模组兼容性
 > 注:此部分尚未制作

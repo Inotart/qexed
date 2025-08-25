@@ -1769,6 +1769,7 @@ dependencies = [
  "rayon",
  "rust_event",
  "serde",
+ "serde_json",
  "simdnoise",
  "tokio",
  "tokio-stream",

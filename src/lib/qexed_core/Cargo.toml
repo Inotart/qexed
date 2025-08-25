@@ -34,3 +34,4 @@ rand.workspace = true
 rayon.workspace = true
 fastrand.workspace = true
 bitflags.workspace = true
+serde_json.workspace = true
