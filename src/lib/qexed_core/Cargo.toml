@@ -33,3 +33,4 @@ ctor.workspace = true
 rand.workspace = true
 rayon.workspace = true
 fastrand.workspace = true
+bitflags.workspace = true

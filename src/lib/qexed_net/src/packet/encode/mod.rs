@@ -86,6 +86,13 @@ impl<'a> PacketWriter<'a> {
             }
         }
     }
+    /// 读取固定长度的字节数组
+    pub fn fixed_bytes<const N: usize>(&mut self,value:&[u8; N]) {
+        // 检查是否有足够的数据
+        for i in 0..N {
+            self.u8(value[i]);
+        }
+    }
     pub fn vec<T:Subdata>(&mut self,value: &Vec<T>){
         let l = value.len();
         self.varint(&VarInt(l as i32));

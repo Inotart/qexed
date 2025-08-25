@@ -1,5 +1,5 @@
 use crate::{
-    net_types::{chunk::Chunk, light::Light, packet::Packet, subdata::Subdata, var_int::VarInt},
+    net_types::{chunk::Chunk, light::Light, packet::Packet, subdata::Subdata},
     packet::{decode::PacketReader, encode::PacketWriter},
 };
 

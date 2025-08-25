@@ -1,3 +1,5 @@
+use std::ops::Sub;
+
 use crab_nbt::Nbt;
 
 use crate::{
@@ -221,3 +223,18 @@ impl<T> Subdata for Vec<T> where T: Subdata,{
         *self = r.vec();
     }
 }
+impl<const N: usize> Subdata for [u8; N] {
+    fn new() -> Self {
+        [0u8; N] // 返回空向量
+    }
+
+    fn serialize(&self, w: &mut PacketWriter) {
+        // 1. 写入长度（VarInt 编码）
+        w.fixed_bytes(self);
+    }
+
+    fn deserialize(&mut self, r: &mut PacketReader) {
+        *self = r.fixed_bytes();
+    }
+}
+// fixed_bytes(&mut self,value:&[u8; N])

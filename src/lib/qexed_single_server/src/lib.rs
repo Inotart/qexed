@@ -410,7 +410,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                             }
                                         }
                                         is_login_finish = true;
-                                        tokio::spawn(alive_fn(Arc::clone(&alive_id),Arc::clone(&packet_socket_raw)));
+                                        tokio::spawn(qexed_core::event::join_server::alive_fn(Arc::clone(&alive_id),Arc::clone(&packet_socket_raw)));
                                         
 
                                     }
@@ -433,6 +433,15 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                 .as_any()
                                 .downcast_ref::<qexed_net::packet::packet_pool::AcceptTeleportation>(
                                 ) {
+                                }
+                            }
+                            0x08 =>{
+                                if let Some(pk) = packet3
+                                .as_any()
+                                .downcast_ref::<qexed_net::packet::packet_pool::ChatMessageCtS>(
+                                ) {
+                                    // 处理 玩家消息 数据包
+                                    log::info!("ChatMessageCtS 数据包: {:?}", pk);
                                 }
                             }
                             0x0c => {
@@ -458,7 +467,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                     .downcast_ref::<qexed_net::packet::packet_pool::MovePlayerPos>(
                                 ) {
                                     // 处理 MovePlayerPos 数据包
-                                    log::info!("移动数据包(不含视角):{:?}",pk);
+                                    // log::info!("移动数据包(不含视角):{:?}",pk);
                                 }
                             }
                             0x1E => {
@@ -467,7 +476,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                     .downcast_ref::<qexed_net::packet::packet_pool::MovePlayerPosRot>(
                                 ) {
                                     // 处理 MovePlayerPosRot 数据包
-                                    log::info!("移动数据包:{:?}",pk);
+                                    // log::info!("移动数据包:{:?}",pk);
                                 }
                             }
 
@@ -483,20 +492,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
     }
     Ok(())
 }
-async fn alive_fn(alive_id: Arc<Mutex<u64>>,send_pk:Arc<Mutex<qexed_net::PacketListener>>){
-    loop {
-        let mut guard = alive_id.lock().await;
-        let mut packet_socket = send_pk.lock().await;
-        let now: DateTime<Utc> = Utc::now();
-        *guard= now.timestamp_millis() as u64;
-        let mut alive_pk = qexed_net::packet::packet_pool::KeepAliveClientPlay::new();
-        alive_pk.alive_id = *guard;
-        let _ = packet_socket.send(&alive_pk).await;
-        drop(guard);
-        drop(packet_socket);
-        tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-    }
-}
+
 // 下阶段登录检查(是否需要正版验证)
 async fn is_online(player: &String, uuids: uuid::Uuid) -> Result<bool, anyhow::Error> {
     let config = qexed_config::get_global_config()?;

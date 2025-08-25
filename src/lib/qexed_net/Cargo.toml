@@ -24,4 +24,6 @@ reqwest.workspace = true
 ctr.workspace = true
 aes.workspace = true
 crab_nbt.workspace = true
+bitflags.workspace = true
+
 

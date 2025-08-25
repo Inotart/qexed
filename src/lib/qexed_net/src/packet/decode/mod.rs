@@ -88,6 +88,15 @@ impl<'a> PacketReader<'a> {
         
         panic!("Invalid VarInt");
     }
+    /// 读取固定长度的字节数组
+    pub fn fixed_bytes<const N: usize>(&mut self) -> [u8; N] {
+        // 检查是否有足够的数据
+        let mut result = [0u8; N];
+        for i in 0..N {
+            result[i] = self.u8();
+        }
+        result
+    }
     pub fn vec<T:Subdata>(&mut self)-> Vec<T>{
         let len = self.varint().0 as usize; // 获取 VarInt 的值
         // 清空现有属性并预分配空间
