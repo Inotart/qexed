@@ -4,7 +4,7 @@ use mongodb::Collection;
 use qexed_core::utils::alloci32::ALLOC;
 use qexed_net::net_types::packet::Packet;
 use qexed_net::net_types::var_int::VarInt;
-use qexed_net::packet::packet_pool::{GameEvent, LevelChunkWithLight, PlayerPosition};
+use qexed_net::packet::packet_pool::{GameEvent, KeepAliveServerPlay, LevelChunkWithLight, PlayerPosition};
 use qexed_net::{
     mojang_online::query_mojang_for_usernames, net_types::packet::PacketState,
     packet::packet_pool::DisconnectLogin, player::Player, read_packet,
@@ -16,6 +16,8 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::{self, net::TcpListener};
 use uuid::Uuid;
+use chrono::{Utc,DateTime};
+
 pub async fn main() -> Result<(), anyhow::Error> {
     log::info!(
         "启动我的世界服务器版本:{}",
@@ -64,13 +66,15 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
 
         tokio::spawn(async move {
             let mongo_pool = pool.lock().await;
-            let packet_socket_raw = Arc::new(Mutex::new(qexed_net::PacketListener::new(
+            let packet_socket_raw: Arc<Mutex<qexed_net::PacketListener>> = Arc::new(Mutex::new(qexed_net::PacketListener::new(
                 socket, socketaddr,
             )));
             log::info!("客户端 {}:{} 创建连接", socketaddr.ip(), socketaddr.port());
             let mut client_status = PacketState::Handshake;
             let mut player_conn = qexed_core::biology::player::Player::new();
             let db = mongo_pool.default_db();
+            let now: DateTime<Utc> = Utc::now();
+            let mut alive_id: Arc<Mutex<u64>> = Arc::new(Mutex::new(now.timestamp_millis() as u64));
             loop {
                 let mut packet_socket = packet_socket_raw.lock().await;
                 let raw_packets = packet_socket.read().await;
@@ -96,11 +100,12 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                     return;
                 }
                 let packet3 = packet2.unwrap();
-                log::info!("数据包:{:?}", packet3);
+                //log::info!("数据包:{:?}", packet3);
                 let mut is_login_finish = false;
                 let mut teleport_id_i32: i32 = 0;
                 let mut first_tp: bool = false;
                 let mut first_move: bool = false;
+                
                 if !is_login_finish {
                     match client_status {
                         PacketState::Handshake => match packet3.id() {
@@ -403,7 +408,9 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                                 let _ = packet_socket.send(&p_q).await;
                                             }
                                         }
-                                        is_login_finish = true
+                                        tokio::spawn(alive_fn(Arc::clone(&alive_id),Arc::clone(&packet_socket_raw)));
+                                        is_login_finish = true;
+
                                     }
                                 }
                             }
@@ -415,11 +422,69 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                 } else {
                     // 暂时还没处理完成登录,完全登录后再实现这里的逻辑,这一行开始
                     // 为了巫妖王,为了艾泽拉斯！！！
+                    match client_status {
+                        PacketState::Play => match packet3.id() {
+                            0x00 => {
+                                // 玩家在接受服务端后的tp逻辑
+
+                                if let Some(_pk) = packet3
+                                .as_any()
+                                .downcast_ref::<qexed_net::packet::packet_pool::AcceptTeleportation>(
+                                ) {
+                                }
+                            }
+                            0x0c => {
+                                if let Some(_pk) = packet3
+                                .as_any()
+                                .downcast_ref::<qexed_net::packet::packet_pool::ChunkBatchStart>(
+                                ) {
+                                    // 处理 ChunkBatchStart 数据包
+                                    // log::info!("ChunkBatchStart 数据包: {:?}", pk);
+                                }
+                            }
+                            0x1B => {
+                                if let Some(_pk) = packet3
+                                    .as_any()
+                                    .downcast_ref::<qexed_net::packet::packet_pool::KeepAliveServerPlay>(
+                                ) {
+                                    // 处理 KeepAlive 数据包
+                                }
+                            }
+                            0x1E => {
+                                if let Some(_pk) = packet3
+                                    .as_any()
+                                    .downcast_ref::<qexed_net::packet::packet_pool::MovePlayerPosRot>(
+                                ) {
+                                    // 处理 MovePlayerPosRot 数据包
+
+                                }
+                            }
+
+                            _ => {
+                                log::info!("未知的数据包与内容:{:?}", packets.clone());
+                            }
+                        },
+                        _ =>{}
+                    }
                 }
             }
         });
     }
     Ok(())
+}
+async fn alive_fn(alive_id: Arc<Mutex<u64>>,send_pk:Arc<Mutex<qexed_net::PacketListener>>){
+    loop {
+        let mut guard = alive_id.lock().await;
+        let mut packet_socket = send_pk.lock().await;
+        let now: DateTime<Utc> = Utc::now();
+        *guard= now.timestamp_millis() as u64;
+        let mut alive_pk = qexed_net::packet::packet_pool::KeepAliveClientPlay::new();
+        alive_pk.alive_id = *guard;
+        let _ = packet_socket.send(&alive_pk).await;
+        drop(guard);
+        drop(packet_socket);
+        tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+    }
 }
 // 下阶段登录检查(是否需要正版验证)
 async fn is_online(player: &String, uuids: uuid::Uuid) -> Result<bool, anyhow::Error> {

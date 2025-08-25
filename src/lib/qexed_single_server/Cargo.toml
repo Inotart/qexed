@@ -21,3 +21,4 @@ rust_event.workspace = true
 mongodb.workspace = true
 uuid.workspace = true
 futures-util.workspace = true
+chrono.workspace = true
