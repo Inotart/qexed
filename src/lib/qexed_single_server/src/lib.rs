@@ -69,7 +69,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
             let packet_socket_raw: Arc<Mutex<qexed_net::PacketListener>> = Arc::new(Mutex::new(qexed_net::PacketListener::new(
                 socket, socketaddr,
             )));
-            log::info!("客户端 {}:{} 创建连接", socketaddr.ip(), socketaddr.port());
+            // log::info!("客户端 {}:{} 创建连接", socketaddr.ip(), socketaddr.port());
             let mut client_status = PacketState::Handshake;
             let mut player_conn = qexed_core::biology::player::Player::new();
             let db = mongo_pool.default_db();
@@ -89,7 +89,11 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                     }
                     player_conn.is_online = false;
                     player_conn.save(&db).await.unwrap();
-                    log::info!("客户端 {}:{} 断开连接", socketaddr.ip(), socketaddr.port());
+                    if is_login_finish{
+                        log::info!("玩家 {}[{}] 退出了游戏",player_conn.username,player_conn.uuid);
+                    }
+                                        
+                    // log::info!("客户端 {}:{} 断开连接", socketaddr.ip(), socketaddr.port());
                     return;
                 }
                 let packets = raw_packets.unwrap();
@@ -420,6 +424,7 @@ pub async fn start_task(tcplistener: TcpListener) -> Result<(), anyhow::Error> {
                                             }
                                         }
                                         is_login_finish = true;
+                                        log::info!("玩家 {}[{}] 加入了游戏",player_conn.username,player_conn.uuid);
                                         tokio::spawn(qexed_core::event::join_server::alive_fn(Arc::clone(&alive_id),Arc::clone(&packet_socket_raw)));
                                         
 
